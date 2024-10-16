@@ -62,93 +62,18 @@ export const DraconisExpanseSystem = {
     GPS:Vesta Station:-1412860:986040:-49577:#FFD6931E:
     GPS:Vesta:-1400000:1000000:-50000:#FFD6931E:
   `),
-  Kronos: [
-    {
-      class: 'station',
-      name: 'Kronos Gate',
-      x: -35303,
-      y: 234184,
-      z: 198247,
-      radius: 2,
-      color: 16777215,
-      zoneDia: 0,
-    },
-    {
-      class: 'planet',
-      name: 'Kronos',
-      x: -75000,
-      y: 86000,
-      z: 18000,
-      radius: 65,
-      color: 40960,
-      zoneDia: 0,
-      zoneName: '',
-    },
-    {
-      class: 'moon',
-      name: 'Kronos 1',
-      x: -224000,
-      y: 164000,
-      z: -55000,
-      radius: 21,
-      color: 14540253,
-      zoneDia: 0,
-      zoneName: '',
-    },
-    {
-      class: 'station',
-      name: 'Kronos Research Facility',
-      x: -48000,
-      y: 29000,
-      z: 32000,
-      radius: 2,
-      color: 16777215,
-    },
-  ],
-  Ilus: [
-    {
-      class: 'station',
-      name: 'Ilus Gate',
-      x: 300146,
-      y: 375140,
-      z: 31503,
-      radius: 2,
-      color: 16777215,
-      zoneDia: 0,
-    },
-    {
-      class: 'station',
-      name: 'Belter Colony',
-      x: 71459,
-      y: 149570,
-      z: 12666,
-      radius: 2,
-      color: 16777215,
-      zoneDia: 0,
-    },
-    {
-      class: 'planet',
-      name: 'Ilus',
-      x: 69000,
-      y: 111000,
-      z: 58000,
-      radius: 60,
-      color: 160,
-      zoneDia: 0,
-      zoneName: '',
-    },
-    {
-      class: 'moon',
-      name: 'Ilus 1',
-      x: 58000,
-      y: 316000,
-      z: 45000,
-      radius: 20,
-      color: 10066329,
-      zoneDia: 0,
-      zoneName: '',
-    },
-  ],
+  Kronos: GPSList.fromString(`
+    GPS:Kronos Gate:-35303:234184:198247:#FFD6931E:
+    GPS:Kronos:-75000:86000:18000:#FF40EC34:
+    GPS:Kronos 1:-224000:164000:-55000:#FF40EC34:
+    GPS:Kronos Research Facility:-48000:29000:32000:#FFD6931E:
+  `),
+  Ilus: GPSList.fromString(`
+    GPS:Ilus:69500:111150:58750:#FFB775F1:
+    GPS:Ilus Gate:300146:375140:31503:#FFB775F1:
+    GPS:Ilus 1:58000:316000:45000:#FF40EC34:
+    GPS:Belter Colony:71459:149570:12666:#FFB775F1:
+  `),
   Jannah: GPSList.fromString(`
     GPS:Alpha Berkut Station:600764.75:703346.87:500064.02:#FF40EC34:
     GPS:Port Jannah:422538.91:630064.11:135873.58:#FF40EC34:

@@ -230,7 +230,7 @@ export class GPSList {
     )
   }
 
-  map<T>(callback: (point: GPSPointOfInterest) => T): T[] {
+  map<T>(callback: (point: GPSPointOfInterest, index: number) => T): T[] {
     return this.list.map(callback)
   }
 

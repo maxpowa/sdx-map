@@ -12,14 +12,20 @@ import { useThree } from '@react-three/fiber'
 import { Billboard, Text, Points, Sphere } from '@react-three/drei'
 import { button, folder, useControls } from 'leva'
 import { DraconisExpanseSystem } from '../data/sdx'
-import { GPSZone, GPSPointOfInterest, GPSBody } from '../util/gps'
+import {
+  GPSZone,
+  GPSPointOfInterest,
+  GPSBody,
+  GPSList,
+  GPSPoint,
+} from '../util/gps'
 import { Body } from './Planet'
 
 const ScaleContext = createContext(1)
 const useScale = () => useContext(ScaleContext)
 
-function renderSystemChildren(data: GPSPointOfInterest[] = [], parent = null) {
-  return data.map((each, index) => {
+function renderSystemChildren(data: GPSList) {
+  return data.map((each: GPSPoint, index: number) => {
     if (GPSZone.isZone(each)) {
       return <Zone {...each} id={index} key={each.name} />
     }
@@ -34,11 +40,10 @@ function Zone(props: {
   y: number
   z: number
   radius: number
-  children: GPSPointOfInterest[]
+  children: GPSList
   color: string
-  focused: boolean
 }) {
-  const { id, focused, x, y, z, children = [], color, radius } = props
+  const { id, x, y, z, children, color, radius } = props
 
   const groupRef = useRef<THREE.Group>(null!)
   const [hovered, hover] = useState(false)
@@ -101,7 +106,7 @@ function Zone(props: {
               position={[0, 0, 1000 / scale]}
               textAlign="left"
               fontSize={100 / scale}
-              outlineWidth={focused ? 1 : 0}
+              outlineWidth={hovered ? 1 : 0}
               outlineBlur={1}
               outlineColor={color}
             >
@@ -141,7 +146,9 @@ function POI(props: GPSPointOfInterest) {
   )
 }
 
-export function StarSystem(props: { system: string }) {
+export function StarSystem(props: {
+  system: keyof typeof DraconisExpanseSystem
+}) {
   const { system } = props
   const scale = 0.001
 
@@ -151,11 +158,11 @@ export function StarSystem(props: { system: string }) {
     if (!controls) return
     controls.reset()
     // if (system === "Ring Space") controls.object.position.set(15, 11.5, 25);
-  }, [controls, system])
+  }, [controls])
 
   useEffect(() => {
     resetCamera()
-  }, [system, controls])
+  }, [system, controls, resetCamera])
 
   useControls(
     {
@@ -188,7 +195,7 @@ export function StarSystem(props: { system: string }) {
   }, [system, userGpsList])
 
   const { from: fromPointName, to: toPointName } = useControls(
-    'Route Planner',
+    'Route Planner (WIP)',
     {
       from: {
         value: poiNames[0],
@@ -203,7 +210,7 @@ export function StarSystem(props: { system: string }) {
   )
 
   useControls(
-    'Route Planner',
+    'Route Planner (WIP)',
     {
       'Calculate Optimized Route': button(() => {
         console.log('Calculating optimized route...')
