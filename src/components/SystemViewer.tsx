@@ -8,8 +8,9 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useThree } from '@react-three/fiber'
-import { Billboard, Text, Points, Sphere } from '@react-three/drei'
+import { ThreeEvent, useThree } from '@react-three/fiber'
+import { OrbitControls } from 'three-stdlib'
+import { Billboard, Text, Points, Sphere, Line } from '@react-three/drei'
 import { button, folder, useControls } from 'leva'
 import { DraconisExpanseSystem } from '../data/sdx'
 import {
@@ -21,15 +22,20 @@ import {
 } from '../util/gps'
 import { Body } from './Planet'
 
-const ScaleContext = createContext(1)
-const useScale = () => useContext(ScaleContext)
+const ScaleContext = createContext({
+  coordScale: 0.001,
+  textScale: 1,
+})
+const useScale = () => useContext(ScaleContext).coordScale
+const useTextScale = () => useContext(ScaleContext).textScale
 
 function renderSystemChildren(data: GPSList) {
   return data.map((each: GPSPoint, index: number) => {
     if (GPSZone.isZone(each)) {
       return <Zone {...each} id={index} key={each.name} />
     }
-    return <POI {...each} id={index} key={each.name} />
+    // @ts-expect-error - each value here is a GPSPoint, or a superclass of GPSPoint - GPSPoint has a function called 'offset', which TS kind of gets confused about
+    return <POI {...each} key={each.name} />
   })
 }
 
@@ -47,9 +53,10 @@ function Zone(props: {
 
   const groupRef = useRef<THREE.Group>(null!)
   const [hovered, hover] = useState(false)
-  const controls = useThree((state) => state.controls)
+  const controls = useThree((state) => state.controls) as OrbitControls
 
   const scale = useScale()
+  const textScale = useTextScale()
 
   // Rendering will always reduce precision to make for simpler rendering
   const position = new THREE.Vector3(x, y, z)
@@ -60,18 +67,23 @@ function Zone(props: {
     <group ref={groupRef} position={position}>
       <Billboard
         renderOrder={id}
-        onPointerOver={(event) => {
-          if (!isSlowZone) return
-          event.stopPropagation()
-          hover(true)
-        }}
-        onPointerOut={(event) => {
-          hover(false)
-        }}
+        {...(isSlowZone
+          ? {}
+          : {
+              onPointerOver: (event) => {
+                if (!isSlowZone) return
+                event.stopPropagation()
+                hover(true)
+              },
+              onPointerOut: () => {
+                hover(false)
+              },
+            })}
       >
         <mesh
           onDoubleClick={(event) => {
             if (!controls) return
+            if (!isSlowZone) return
             const scaledPosition = new THREE.Vector3(
               x * scale,
               y * scale,
@@ -83,7 +95,7 @@ function Zone(props: {
               scaledPosition.y,
               scaledRadius,
             )
-            isSlowZone && event.stopPropagation()
+            event.stopPropagation()
           }}
           userData={{
             name: props.name,
@@ -105,7 +117,7 @@ function Zone(props: {
             <Text
               position={[0, 0, 1000 / scale]}
               textAlign="left"
-              fontSize={100 / scale}
+              fontSize={100 * textScale}
               outlineWidth={hovered ? 1 : 0}
               outlineBlur={1}
               outlineColor={color}
@@ -124,23 +136,96 @@ function POI(props: GPSPointOfInterest) {
   const { name, x, y, z, color, radius } = props
 
   const scale = useScale()
+  const textScale = useTextScale()
+  const controls = useThree((state) => state.controls) as OrbitControls
 
-  const labelPosition = radius
-    ? new THREE.Vector3(radius, radius, radius)
-    : new THREE.Vector3(0, 8 / scale, 32 / scale)
-  const labelFontSize = (radius ? 12 : 8) / scale
+  const isBody = GPSBody.isBody(props)
+
+  const labelPosition = useMemo(() => {
+    if (GPSBody.isBody(props)) {
+      return new THREE.Vector3(5 * textScale + props.radius, radius, radius)
+    }
+    return new THREE.Vector3(-15 * textScale, 15 * textScale, 0)
+  }, [props, textScale, radius])
+
+  const labelFontSize = useMemo(
+    () => (radius ? 12 : 8) * textScale,
+    [radius, textScale],
+  )
+
+  const scaledRadius = (radius ?? 10) * scale
+
+  const onDoubleClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      if (!controls) return
+      const scaledPosition = new THREE.Vector3(x * scale, y * scale, z * scale)
+      controls.target = scaledPosition
+      controls.object.position.set(
+        scaledPosition.x,
+        scaledPosition.y,
+        scaledRadius,
+      )
+      event.stopPropagation()
+    },
+    [controls, x, y, z, scaledRadius, scale],
+  )
 
   return (
     <group position={new THREE.Vector3(x, y, z)}>
-      {GPSBody.isBody(props) ? (
-        <Body name={name.toLocaleLowerCase()} radius={props.radius} />
+      {isBody ? (
+        <Body
+          name={name.toLocaleLowerCase()}
+          radius={props.radius}
+          onDoubleClick={onDoubleClick}
+        />
       ) : (
-        <Sphere args={[5 / scale]}>
+        <Sphere args={[5 * textScale]} onDoubleClick={onDoubleClick}>
           <meshStandardMaterial color={color} />
         </Sphere>
       )}
-      <Billboard position={labelPosition}>
-        <Text fontSize={labelFontSize}>{name}</Text>
+      <Billboard>
+        <Text
+          position={labelPosition
+            .clone()
+            .add(
+              new THREE.Vector3(
+                (isBody ? 4 : -2) * textScale,
+                1 * textScale,
+                0,
+              ),
+            )}
+          fontSize={labelFontSize}
+          anchorX={isBody ? 'left' : 'right'}
+          anchorY={'bottom'}
+        >
+          {name}
+        </Text>
+        <Line
+          lineWidth={0.9}
+          points={[labelPosition, new THREE.Vector3(0, 0, 0)]}
+        />
+        <Line
+          lineWidth={0.9}
+          points={[
+            labelPosition.clone().add(new THREE.Vector3(0, 5 * textScale, 0)),
+            labelPosition,
+          ]}
+        />
+        <Line
+          lineWidth={0.9}
+          points={[
+            labelPosition
+              .clone()
+              .add(
+                new THREE.Vector3(
+                  (isBody ? 2 : -2) * name.length * textScale,
+                  0,
+                  0,
+                ),
+              ),
+            labelPosition,
+          ]}
+        />
       </Billboard>
     </group>
   )
@@ -150,19 +235,41 @@ export function StarSystem(props: {
   system: keyof typeof DraconisExpanseSystem
 }) {
   const { system } = props
-  const scale = 0.001
+  let coordScale = 0.012
+  let textScale = 1000
+  if (system === 'Sol' || system === 'Ring Space') {
+    coordScale = 0.001
+    if (system === 'Ring Space') {
+      textScale = 500
+    }
+  }
 
-  const controls = useThree((state) => state.controls)
+  const { controls } = useThree() as {
+    controls: OrbitControls
+  }
 
   const resetCamera = useCallback(() => {
     if (!controls) return
-    controls.reset()
-    // if (system === "Ring Space") controls.object.position.set(15, 11.5, 25);
-  }, [controls])
+    // controls.reset()
+    if (system === 'Sol') {
+      controls.object.position.set(0, 0, 5000)
+      controls.target.set(0, 0, 0)
+    } else if (system === 'Ring Space') {
+      controls.object.position.set(0, 0, 50)
+      controls.target.set(15, 10, 0)
+    } else if (system === 'Kronos') {
+      controls.object.position.set(0, 0, 5000)
+      controls.target.set(0, 0, 0)
+    } else if (system === 'Ilus') {
+      controls.object.position.set(0, 0, 5000)
+      controls.target.set(0, 0, 0)
+    } else if (system === 'Jannah') {
+      controls.object.position.set(0, 9000, 8000)
+      controls.target.set(7000, 8000, 1000)
+    }
+  }, [controls, system])
 
-  useEffect(() => {
-    resetCamera()
-  }, [system, controls, resetCamera])
+  useEffect(resetCamera, [system, resetCamera])
 
   useControls(
     {
@@ -243,8 +350,8 @@ export function StarSystem(props: {
   )
 
   return (
-    <ScaleContext.Provider value={scale}>
-      <group scale={[scale, scale, scale]}>
+    <ScaleContext.Provider value={{ coordScale, textScale }}>
+      <group scale={[coordScale, coordScale, coordScale]}>
         <Points>{renderSystemChildren(systemData)}</Points>
       </group>
     </ScaleContext.Provider>

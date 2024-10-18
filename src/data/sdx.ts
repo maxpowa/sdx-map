@@ -3,7 +3,7 @@ import { GPSList } from '../util/gps'
 export const DraconisExpanseSystem = {
   // This GPS list is exported from ingame, using a combination of `!nexus getsectors true` and `!gps` commands.
   // Then run through `parseGPSList` to convert it to a format that can be used here.
-  // Some manual tweaks are made as well, marking zone speed limits.
+  // Some manual tweaks are made as well, marking zone speed limits (by specifying instance names)
   Sol: GPSList.fromString(`
     GPS:Ariel:-4110989.31:3110909.45:-359192.17:#FF40EC34:
     GPS:Beratnas Gas Station Jupiter:-119500.8:-2955103.11:351258.18:#FFD6931E:
@@ -50,6 +50,7 @@ export const DraconisExpanseSystem = {
     GPS:Saturn:2800000:2000000:-100000:#FF40EC34:
     GPS:Scrap Yard:2750000:2435000:130000:#FFD6931E:
     GPS:Sol Gate - (R:80km):-3900000:3600000:-200000:#FFFFFF00:DX6:
+    GPS:Sol Gate:-3900000:3600000:-200000:#FFFFFF00:
     GPS:T1 - (R:300km):1725000:0:0:#FFFFFF00:DX2:
     GPS:Titan:3000000:1900000:-100000:#FF40EC34:
     GPS:Trojan Cluster - (R:400km):1600000:-2700000:445350:#FFFFFF00:DX2:
@@ -87,4 +88,12 @@ export const DraconisExpanseSystem = {
     GPS:Ilus Gate:12349:28361:7116:#FFF1A875:
     GPS:Kronos Gate:32676:6550:1022:#FFF1A875:
   `),
+}
+
+// Transit points are used to define the possible destinations from a given system, for calculating inter-system travel times.
+export const TransitPoints = {
+  'Jannah Gate': ['Sol'],
+  'Sol Gate': ['Ring Space', 'Sol'],
+  'Ilus Gate': ['Ring Space', 'Ilus'],
+  'Kronos Gate': ['Ring Space', 'Kronos'],
 }

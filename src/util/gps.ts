@@ -21,10 +21,12 @@ const bodies = {
   Europa: 21000,
   Ganymede: 35000,
   Ilus: 120000, // guess, no source
+  'Ilus 1': 20000, // guess, no source
   Io: 22000,
   Jannah: 385000,
   Jupiter: 280000,
-  Kronos: 200000, // guess, no source
+  Kronos: 130000, // guess, no source
+  'Kronos 1': 20000, // guess, no source
   Luna: 28000,
   Mars: 120000,
   Pallas: 28000,
@@ -33,7 +35,7 @@ const bodies = {
   Saturn: 120000,
   Titan: 20000,
   Uranus: 160000,
-  Vesta: 56000,
+  Vesta: 39000, // admins say this is 56km, but it seems smaller due to the location of Vesta (Station), compared to the origin of Vesta (Body), or the waypoint for the center of Vesta is wrong.
 } as Record<string, number>
 
 export class GPSPoint {
