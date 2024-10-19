@@ -21,7 +21,7 @@ const bodies = {
   Europa: 21000,
   Ganymede: 35000,
   Ilus: 120000, // guess, no source
-  'Ilus 1': 20000, // guess, no source
+  'Ilus 1': 16000, // rough estimate based on survey data (I went there and figured an approximate value)
   Io: 22000,
   Jannah: 385000,
   Jupiter: 280000,
@@ -69,15 +69,12 @@ export class GPSPoint {
     this.parent = parent
   }
 
-  offset(
-    offsetX: number = 0,
-    offsetY: number = 0,
-    offsetZ: number = 0,
-  ): GPSPointOfInterest {
-    this.x += offsetX
-    this.y += offsetY
-    this.z += offsetZ
-    return this
+  relativeCoords(): [number, number, number] {
+    return [
+      this.x - (this.parent?.x ?? 0),
+      this.y - (this.parent?.y ?? 0),
+      this.z - (this.parent?.z ?? 0),
+    ]
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -117,6 +114,8 @@ export class GPSPoint {
         z,
         ZoneColors[category] ?? color ?? '#FFFFFF',
         parseInt(radixResult[2], 10) * 1000,
+        undefined,
+        category,
       )
     } else if (bodies[name]) {
       return new GPSBody(name, x, y, z, color ?? '#C8C8C8', bodies[name] / 2)
@@ -253,7 +252,8 @@ export class GPSList {
     pois.forEach((poi) => {
       const parentZone = zones.find((zone) => zone.doesCapture(poi))
       if (parentZone) {
-        parentZone.push(poi.offset(-parentZone.x, -parentZone.y, -parentZone.z))
+        poi.parent = parentZone
+        parentZone.push(poi)
       } else {
         outsidePOIs.push(poi)
       }
@@ -269,9 +269,8 @@ export class GPSList {
             zone !== potentialParent && zone.doesCapture(potentialParent),
         )
         if (parentZone) {
-          parentZone.push(
-            zone.offset(-parentZone.x, -parentZone.y, -parentZone.z),
-          )
+          zone.parent = parentZone
+          parentZone.push(zone)
           zones.splice(i, 1)
         }
       }

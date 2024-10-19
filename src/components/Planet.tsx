@@ -27,6 +27,25 @@ export const Earth = (props: {
   )
 }
 
+export const Planetoid = (props: {
+  radius: number
+  onDoubleClick: (event: ThreeEvent<MouseEvent>) => void
+}) => {
+  const { radius, onDoubleClick } = props
+
+  const [texture] = useTexture(['./planets/rocky.jpg'])
+
+  return (
+    <Sphere args={[radius, 64, 128]} onDoubleClick={onDoubleClick}>
+      <meshPhongMaterial
+        map={texture}
+        displacementMap={texture}
+        displacementScale={1000}
+      />
+    </Sphere>
+  )
+}
+
 const supportedPlanets = [
   'earth',
   'jupiter',
@@ -36,6 +55,7 @@ const supportedPlanets = [
   'jannah',
   'kronos',
   'ilus',
+  'luna',
 ]
 export const Planet = (props: {
   radius: number
@@ -57,17 +77,13 @@ export const Body = (props: {
   name: string
   onDoubleClick: (event: ThreeEvent<MouseEvent>) => void
 }) => {
-  const { radius, name, onDoubleClick } = props
+  const { name } = props
 
   if (name === 'earth') {
-    return <Earth radius={radius} onDoubleClick={onDoubleClick} />
+    return <Earth {...props} />
   } else if (supportedPlanets.includes(name)) {
-    return <Planet {...props} onDoubleClick={onDoubleClick} />
+    return <Planet {...props} />
   }
 
-  return (
-    <Sphere args={[radius, 64, 128]} onDoubleClick={onDoubleClick}>
-      <meshStandardMaterial color={'gray'} />
-    </Sphere>
-  )
+  return <Planetoid {...props} />
 }

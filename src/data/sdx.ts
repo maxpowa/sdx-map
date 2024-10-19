@@ -72,7 +72,7 @@ export const DraconisExpanseSystem = {
   Ilus: GPSList.fromString(`
     GPS:Ilus:69500:111150:58750:#FFB775F1:
     GPS:Ilus Gate:300146:375140:31503:#FFB775F1:
-    GPS:Ilus 1:58000:316000:45000:#FF40EC34:
+    GPS:Ilus 1:57500:318500:47900:#FF40EC34:
     GPS:Belter Colony:71459:149570:12666:#FFB775F1:
   `),
   Jannah: GPSList.fromString(`

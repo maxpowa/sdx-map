@@ -48,6 +48,7 @@ const RAW_RUNTIME_STATE =
           ["prettier", "npm:3.3.3"],\
           ["react", "npm:18.3.1"],\
           ["react-dom", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:18.3.1"],\
+          ["suspend-react", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3"],\
           ["three", "npm:0.169.0"],\
           ["three-stdlib", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:2.33.0"],\
           ["typescript", "patch:typescript@npm%3A5.6.3#optional!builtin<compat/typescript>::version=5.6.3&hash=8c6c40"],\
@@ -1287,7 +1288,7 @@ const RAW_RUNTIME_STATE =
           ["react-dom", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:18.3.1"],\
           ["stats-gl", "npm:2.2.8"],\
           ["stats.js", "npm:0.17.0"],\
-          ["suspend-react", "virtual:502eeb207e79b7396c91d36e7848cf1ea8c1608066cf52a0b1b930519d5a4e00ebc8e2b5378b7751ce8bbc6424ff1f6ff486f787b40205066e7eaf75c9cef33e#npm:0.1.3"],\
+          ["suspend-react", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3"],\
           ["three", "npm:0.169.0"],\
           ["three-mesh-bvh", "virtual:502eeb207e79b7396c91d36e7848cf1ea8c1608066cf52a0b1b930519d5a4e00ebc8e2b5378b7751ce8bbc6424ff1f6ff486f787b40205066e7eaf75c9cef33e#npm:0.7.8"],\
           ["three-stdlib", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:2.33.0"],\
@@ -1347,7 +1348,7 @@ const RAW_RUNTIME_STATE =
           ["react-native", null],\
           ["react-reconciler", "virtual:8d84a668e5f1040f8c8ea5ff0f1150f7cda6ba4ca43b88086b6c18362063f070a56b5bf32e8858b8cdc93bc29b2198be75f272291815cca05d77b2c9579f7327#npm:0.27.0"],\
           ["scheduler", "npm:0.21.0"],\
-          ["suspend-react", "virtual:502eeb207e79b7396c91d36e7848cf1ea8c1608066cf52a0b1b930519d5a4e00ebc8e2b5378b7751ce8bbc6424ff1f6ff486f787b40205066e7eaf75c9cef33e#npm:0.1.3"],\
+          ["suspend-react", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3"],\
           ["three", "npm:0.169.0"],\
           ["zustand", "virtual:502eeb207e79b7396c91d36e7848cf1ea8c1608066cf52a0b1b930519d5a4e00ebc8e2b5378b7751ce8bbc6424ff1f6ff486f787b40205066e7eaf75c9cef33e#npm:3.7.2"]\
         ],\
@@ -5103,6 +5104,7 @@ const RAW_RUNTIME_STATE =
           ["prettier", "npm:3.3.3"],\
           ["react", "npm:18.3.1"],\
           ["react-dom", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:18.3.1"],\
+          ["suspend-react", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3"],\
           ["three", "npm:0.169.0"],\
           ["three-stdlib", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:2.33.0"],\
           ["typescript", "patch:typescript@npm%3A5.6.3#optional!builtin<compat/typescript>::version=5.6.3&hash=8c6c40"],\
@@ -5420,10 +5422,10 @@ const RAW_RUNTIME_STATE =
         ],\
         "linkType": "SOFT"\
       }],\
-      ["virtual:502eeb207e79b7396c91d36e7848cf1ea8c1608066cf52a0b1b930519d5a4e00ebc8e2b5378b7751ce8bbc6424ff1f6ff486f787b40205066e7eaf75c9cef33e#npm:0.1.3", {\
-        "packageLocation": "./.yarn/__virtual__/suspend-react-virtual-4fd0c11c3a/3/AppData/Local/Yarn/Berry/cache/suspend-react-npm-0.1.3-7a81257ed6-10c0.zip/node_modules/suspend-react/",\
+      ["virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3", {\
+        "packageLocation": "./.yarn/__virtual__/suspend-react-virtual-008ea69928/3/AppData/Local/Yarn/Berry/cache/suspend-react-npm-0.1.3-7a81257ed6-10c0.zip/node_modules/suspend-react/",\
         "packageDependencies": [\
-          ["suspend-react", "virtual:502eeb207e79b7396c91d36e7848cf1ea8c1608066cf52a0b1b930519d5a4e00ebc8e2b5378b7751ce8bbc6424ff1f6ff486f787b40205066e7eaf75c9cef33e#npm:0.1.3"],\
+          ["suspend-react", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3"],\
           ["@types/react", "npm:18.3.11"],\
           ["react", "npm:18.3.1"]\
         ],\

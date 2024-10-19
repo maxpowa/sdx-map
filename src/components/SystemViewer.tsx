@@ -11,7 +11,7 @@ import {
 import { ThreeEvent, useThree } from '@react-three/fiber'
 import { OrbitControls } from 'three-stdlib'
 import { Billboard, Text, Points, Sphere, Line } from '@react-three/drei'
-import { button, folder, useControls } from 'leva'
+import { button, useControls } from 'leva'
 import { DraconisExpanseSystem } from '../data/sdx'
 import {
   GPSZone,
@@ -21,6 +21,7 @@ import {
   GPSPoint,
 } from '../util/gps'
 import { Body } from './Planet'
+import usePersistentState from '../util/state'
 
 const ScaleContext = createContext({
   coordScale: 0.001,
@@ -30,26 +31,18 @@ const useScale = () => useContext(ScaleContext).coordScale
 const useTextScale = () => useContext(ScaleContext).textScale
 
 function renderSystemChildren(data: GPSList) {
-  return data.map((each: GPSPoint, index: number) => {
+  return data.map((each: GPSPoint) => {
     if (GPSZone.isZone(each)) {
-      return <Zone {...each} id={index} key={each.name} />
+      return <Zone zone={each} key={each.name} />
     }
-    // @ts-expect-error - each value here is a GPSPoint, or a superclass of GPSPoint - GPSPoint has a function called 'offset', which TS kind of gets confused about
-    return <POI {...each} key={each.name} />
+    return <POI poi={each} key={each.name} />
   })
 }
 
-function Zone(props: {
-  name: string
-  id: number
-  x: number
-  y: number
-  z: number
-  radius: number
-  children: GPSList
-  color: string
-}) {
-  const { id, x, y, z, children, color, radius } = props
+function Zone(props: { zone: GPSZone }) {
+  const { zone } = props
+  const { children, color, radius } = zone
+  const [x, y, z] = zone.relativeCoords()
 
   const groupRef = useRef<THREE.Group>(null!)
   const [hovered, hover] = useState(false)
@@ -63,10 +56,39 @@ function Zone(props: {
   const scaledRadius = radius * scale
 
   const isSlowZone = radius < 2750000
+
+  const [, set] = useControls('Selected Point of Interest', () => ({
+    Information: {
+      value: '',
+      editable: false,
+    },
+    GPS: {
+      value: '',
+      editable: false,
+    },
+  }))
+
+  const onDoubleClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      if (!controls) return
+      if (!isSlowZone) return
+      const scaledPosition = new THREE.Vector3(x * scale, y * scale, z * scale)
+      controls.target = scaledPosition
+      controls.object.position.set(
+        scaledPosition.x,
+        scaledPosition.y,
+        scaledRadius * 0.8,
+      )
+      set({ Information: `${zone.name} (Zone ${zone.category})` })
+      set({ GPS: zone.toString() })
+      event.stopPropagation()
+    },
+    [controls, isSlowZone, scale, scaledRadius, set, x, y, z, zone],
+  )
+
   return (
     <group ref={groupRef} position={position}>
       <Billboard
-        renderOrder={id}
         {...(isSlowZone
           ? {}
           : {
@@ -81,24 +103,9 @@ function Zone(props: {
             })}
       >
         <mesh
-          onDoubleClick={(event) => {
-            if (!controls) return
-            if (!isSlowZone) return
-            const scaledPosition = new THREE.Vector3(
-              x * scale,
-              y * scale,
-              z * scale,
-            )
-            controls.target = scaledPosition
-            controls.object.position.set(
-              scaledPosition.x,
-              scaledPosition.y,
-              scaledRadius,
-            )
-            event.stopPropagation()
-          }}
+          onDoubleClick={onDoubleClick}
           userData={{
-            name: props.name,
+            name: zone.name,
             radius: scaledRadius,
             isSlowZone,
             origin: position,
@@ -115,6 +122,7 @@ function Zone(props: {
           </Sphere>
           {isSlowZone && (
             <Text
+              font={'./RobotoMono-Regular.ttf'}
               position={[0, 0, 1000 / scale]}
               textAlign="left"
               fontSize={100 * textScale}
@@ -122,7 +130,7 @@ function Zone(props: {
               outlineBlur={1}
               outlineColor={color}
             >
-              {props.name}
+              {zone.name}
             </Text>
           )}
         </mesh>
@@ -132,42 +140,63 @@ function Zone(props: {
   )
 }
 
-function POI(props: GPSPointOfInterest) {
-  const { name, x, y, z, color, radius } = props
+function POI(props: { poi: GPSPointOfInterest }) {
+  const { poi } = props
+  const { name, color, radius } = poi
+  const [x, y, z] = poi.relativeCoords()
 
   const scale = useScale()
   const textScale = useTextScale()
   const controls = useThree((state) => state.controls) as OrbitControls
 
-  const isBody = GPSBody.isBody(props)
+  const isBody = GPSBody.isBody(poi)
 
   const labelPosition = useMemo(() => {
-    if (GPSBody.isBody(props)) {
-      return new THREE.Vector3(5 * textScale + props.radius, radius, radius)
+    if (GPSBody.isBody(poi)) {
+      return new THREE.Vector3(
+        5 * textScale + poi.radius,
+        poi.radius,
+        poi.radius,
+      )
     }
     return new THREE.Vector3(-15 * textScale, 15 * textScale, 0)
-  }, [props, textScale, radius])
+  }, [textScale, poi])
 
   const labelFontSize = useMemo(
     () => (radius ? 12 : 8) * textScale,
     [radius, textScale],
   )
 
-  const scaledRadius = (radius ?? 10) * scale
+  const [, set] = useControls('Selected Point of Interest', () => ({
+    Information: {
+      value: '',
+      editable: false,
+    },
+    GPS: {
+      value: '',
+      editable: false,
+    },
+  }))
 
   const onDoubleClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
       if (!controls) return
-      const scaledPosition = new THREE.Vector3(x * scale, y * scale, z * scale)
-      controls.target = scaledPosition
-      controls.object.position.set(
-        scaledPosition.x,
-        scaledPosition.y,
-        scaledRadius,
+      const targetPosition = new THREE.Vector3(
+        poi.x * scale,
+        poi.y * scale,
+        poi.z * scale,
       )
+      controls.target = targetPosition
+      controls.object.position.set(
+        targetPosition.x,
+        targetPosition.y,
+        targetPosition.z + (radius ?? 10000) * scale * 2,
+      )
+      set({ Information: name })
+      set({ GPS: poi.toString() })
       event.stopPropagation()
     },
-    [controls, x, y, z, scaledRadius, scale],
+    [controls, poi, scale, radius, set, name],
   )
 
   return (
@@ -175,7 +204,7 @@ function POI(props: GPSPointOfInterest) {
       {isBody ? (
         <Body
           name={name.toLocaleLowerCase()}
-          radius={props.radius}
+          radius={poi.radius}
           onDoubleClick={onDoubleClick}
         />
       ) : (
@@ -185,6 +214,7 @@ function POI(props: GPSPointOfInterest) {
       )}
       <Billboard>
         <Text
+          font={'./RobotoMono-Regular.ttf'}
           position={labelPosition
             .clone()
             .add(
@@ -248,9 +278,19 @@ export function StarSystem(props: {
     controls: OrbitControls
   }
 
+  const [, set] = useControls('Selected Point of Interest', () => ({
+    Information: {
+      value: '',
+      editable: false,
+    },
+    GPS: {
+      value: '',
+      editable: false,
+    },
+  }))
+
   const resetCamera = useCallback(() => {
     if (!controls) return
-    // controls.reset()
     if (system === 'Sol') {
       controls.object.position.set(0, 0, 5000)
       controls.target.set(0, 0, 0)
@@ -258,16 +298,17 @@ export function StarSystem(props: {
       controls.object.position.set(0, 0, 50)
       controls.target.set(15, 10, 0)
     } else if (system === 'Kronos') {
-      controls.object.position.set(0, 0, 5000)
-      controls.target.set(0, 0, 0)
+      controls.object.position.set(-5500, 2300, 1233)
+      controls.target.set(-900, 1030, 216)
     } else if (system === 'Ilus') {
-      controls.object.position.set(0, 0, 5000)
-      controls.target.set(0, 0, 0)
+      controls.object.position.set(3275, 6164, 3333)
+      controls.target.set(1903, 2661, 35)
     } else if (system === 'Jannah') {
       controls.object.position.set(0, 9000, 8000)
       controls.target.set(7000, 8000, 1000)
     }
-  }, [controls, system])
+    set({ Information: 'N/A', GPS: '' })
+  }, [controls, set, system])
 
   useEffect(resetCamera, [system, resetCamera])
 
@@ -278,75 +319,68 @@ export function StarSystem(props: {
     [controls],
   )
 
-  const { list: userGpsList } = useControls(
-    {
-      'User GPS': folder({
-        list: {
-          value: '',
-          // show as multiline text
-          rows: 3,
-        },
-      }),
-    },
-    [],
+  const [userGpsList, setPersistedGpsList] = usePersistentState(
+    `userGPSList-${system}`,
+    '',
+  )
+  useControls(
+    'User GPS',
+    () => ({
+      [`gpsList-${system}`]: {
+        label: '',
+        value: userGpsList,
+        // show as multiline text
+        rows: 3,
+        onChange: ((currentSystem: string) => (value: string) => {
+          if (system === currentSystem) setPersistedGpsList(value)
+        })(system),
+      },
+    }),
+    [system, userGpsList, setPersistedGpsList],
   )
 
-  const [systemData, poiNames] = useMemo(() => {
+  const [systemData, poiRecord, sortedKeys] = useMemo(() => {
     const data = DraconisExpanseSystem[system].clone()
     data.addFromString(userGpsList)
-    const poiNames = data
+    const poiRecord = data
       .pois()
-      .map((poi: GPSPointOfInterest) => poi.name)
-      .sort()
-    return [data, poiNames]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .reduce(
+        (acc: Record<string, GPSPointOfInterest>, poi: GPSPointOfInterest) => {
+          acc[poi.name] = poi
+          return acc
+        },
+        {},
+      )
+    const sortedKeys = Object.keys(poiRecord).sort()
+    return [data, poiRecord, sortedKeys]
   }, [system, userGpsList])
 
-  const { from: fromPointName, to: toPointName } = useControls(
+  const { from: fromPoi, to: toPoi } = useControls(
     'Route Planner (WIP)',
     {
       from: {
-        value: poiNames[0],
-        options: poiNames,
+        value: poiRecord[sortedKeys[0]],
+        options: poiRecord,
       },
       to: {
-        value: poiNames[1],
-        options: poiNames,
+        value: poiRecord[sortedKeys[1]],
+        options: poiRecord,
       },
     },
-    [poiNames],
+    [sortedKeys, poiRecord],
   )
 
   useControls(
     'Route Planner (WIP)',
     {
       'Calculate Optimized Route': button(() => {
-        console.log('Calculating optimized route...')
-        // Raycast from "from" to "to" and calculate the shortest path between them, accounting for zone speed limits
-        // Zone speed limits are as follows: zones larger than 2750000m have a speed limit of 15000m/s, smaller zones have a speed limit of 300m/s
+        console.log('Calculating optimized route... TODO :)')
 
-        // Raycast using ThreeJS raycasting to reduce required math. Use the ray caster to find the first intersection with a zone, then calculate the time to reach the intersection point
-        // Calculate the time to reach the next zone, and so on, until the destination is reached
-
-        const from = systemData
-          .pois()
-          .find((poi: GPSPointOfInterest) => poi.name === fromPointName)
-        const to = systemData
-          .pois()
-          .find((poi: GPSPointOfInterest) => poi.name === toPointName)
-
-        if (!from || !to) {
-          console.error('Invalid from/to points')
-          return
-        }
-
-        // Use the calculated times to determine the optimal route
-
-        // Display the optimal route on the map
-
-        // Display the time required to travel the optimal route
+        // Calculate optimized route, between fromPoi and toPoi (if possible)
       }),
     },
-    [fromPointName, toPointName],
+    [fromPoi, toPoi],
   )
 
   return (
