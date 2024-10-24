@@ -1,265 +1,12 @@
-import * as THREE from 'three'
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
-import { ThreeEvent, useThree } from '@react-three/fiber'
+import { useCallback, useEffect, useMemo } from 'react'
+import { useThree } from '@react-three/fiber'
 import { OrbitControls } from 'three-stdlib'
-import { Billboard, Text, Points, Sphere, Line } from '@react-three/drei'
+import { Points } from '@react-three/drei'
 import { button, useControls } from 'leva'
 import { DraconisExpanseSystem } from '../data/sdx'
-import {
-  GPSZone,
-  GPSPointOfInterest,
-  GPSBody,
-  GPSList,
-  GPSPoint,
-} from '../util/gps'
-import { Body } from './Planet'
-import usePersistentState from '../util/state'
-
-const ScaleContext = createContext({
-  coordScale: 0.001,
-  textScale: 1,
-})
-const useScale = () => useContext(ScaleContext).coordScale
-const useTextScale = () => useContext(ScaleContext).textScale
-
-function renderSystemChildren(data: GPSList) {
-  return data.map((each: GPSPoint) => {
-    if (GPSZone.isZone(each)) {
-      return <Zone zone={each} key={each.name} />
-    }
-    return <POI poi={each} key={each.name} />
-  })
-}
-
-function Zone(props: { zone: GPSZone }) {
-  const { zone } = props
-  const { children, color, radius } = zone
-  const [x, y, z] = zone.relativeCoords()
-
-  const groupRef = useRef<THREE.Group>(null!)
-  const [hovered, hover] = useState(false)
-  const controls = useThree((state) => state.controls) as OrbitControls
-
-  const scale = useScale()
-  const textScale = useTextScale()
-
-  // Rendering will always reduce precision to make for simpler rendering
-  const position = new THREE.Vector3(x, y, z)
-  const scaledRadius = radius * scale
-
-  const isSlowZone = radius < 2750000
-
-  const [, set] = useControls('Selected Point of Interest', () => ({
-    Information: {
-      value: '',
-      editable: false,
-    },
-    GPS: {
-      value: '',
-      editable: false,
-    },
-  }))
-
-  const onDoubleClick = useCallback(
-    (event: ThreeEvent<MouseEvent>) => {
-      if (!controls) return
-      if (!isSlowZone) return
-      const scaledPosition = new THREE.Vector3(x * scale, y * scale, z * scale)
-      controls.target = scaledPosition
-      controls.object.position.set(
-        scaledPosition.x,
-        scaledPosition.y,
-        scaledRadius * 0.8,
-      )
-      set({ Information: `${zone.name} (Zone ${zone.category})` })
-      set({ GPS: zone.toString() })
-      event.stopPropagation()
-    },
-    [controls, isSlowZone, scale, scaledRadius, set, x, y, z, zone],
-  )
-
-  return (
-    <group ref={groupRef} position={position}>
-      <Billboard
-        {...(isSlowZone
-          ? {}
-          : {
-              onPointerOver: (event) => {
-                if (!isSlowZone) return
-                event.stopPropagation()
-                hover(true)
-              },
-              onPointerOut: () => {
-                hover(false)
-              },
-            })}
-      >
-        <mesh
-          onDoubleClick={onDoubleClick}
-          userData={{
-            name: zone.name,
-            radius: scaledRadius,
-            isSlowZone,
-            origin: position,
-          }}
-        >
-          <Sphere args={[radius]}>
-            <meshPhongMaterial
-              color={color}
-              transparent={false}
-              opacity={hovered ? 0.7 : 0.4}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
-          </Sphere>
-          {isSlowZone && (
-            <Text
-              font={'./RobotoMono-Regular.ttf'}
-              position={[0, 0, 1000 / scale]}
-              textAlign="left"
-              fontSize={100 * textScale}
-              outlineWidth={hovered ? 1 : 0}
-              outlineBlur={1}
-              outlineColor={color}
-            >
-              {zone.name}
-            </Text>
-          )}
-        </mesh>
-      </Billboard>
-      {renderSystemChildren(children)}
-    </group>
-  )
-}
-
-function POI(props: { poi: GPSPointOfInterest }) {
-  const { poi } = props
-  const { name, color, radius } = poi
-  const [x, y, z] = poi.relativeCoords()
-
-  const scale = useScale()
-  const textScale = useTextScale()
-  const controls = useThree((state) => state.controls) as OrbitControls
-
-  const isBody = GPSBody.isBody(poi)
-
-  const labelPosition = useMemo(() => {
-    if (GPSBody.isBody(poi)) {
-      return new THREE.Vector3(
-        5 * textScale + poi.radius,
-        poi.radius,
-        poi.radius,
-      )
-    }
-    return new THREE.Vector3(-15 * textScale, 15 * textScale, 0)
-  }, [textScale, poi])
-
-  const labelFontSize = useMemo(
-    () => (radius ? 12 : 8) * textScale,
-    [radius, textScale],
-  )
-
-  const [, set] = useControls('Selected Point of Interest', () => ({
-    Information: {
-      value: '',
-      editable: false,
-    },
-    GPS: {
-      value: '',
-      editable: false,
-    },
-  }))
-
-  const onDoubleClick = useCallback(
-    (event: ThreeEvent<MouseEvent>) => {
-      if (!controls) return
-      const targetPosition = new THREE.Vector3(
-        poi.x * scale,
-        poi.y * scale,
-        poi.z * scale,
-      )
-      controls.target = targetPosition
-      controls.object.position.set(
-        targetPosition.x,
-        targetPosition.y,
-        targetPosition.z + (radius ?? 10000) * scale * 2,
-      )
-      set({ Information: name })
-      set({ GPS: poi.toString() })
-      event.stopPropagation()
-    },
-    [controls, poi, scale, radius, set, name],
-  )
-
-  return (
-    <group position={new THREE.Vector3(x, y, z)}>
-      {isBody ? (
-        <Body
-          name={name.toLocaleLowerCase()}
-          radius={poi.radius}
-          onDoubleClick={onDoubleClick}
-        />
-      ) : (
-        <Sphere args={[5 * textScale]} onDoubleClick={onDoubleClick}>
-          <meshStandardMaterial color={color} />
-        </Sphere>
-      )}
-      <Billboard>
-        <Text
-          font={'./RobotoMono-Regular.ttf'}
-          position={labelPosition
-            .clone()
-            .add(
-              new THREE.Vector3(
-                (isBody ? 4 : -2) * textScale,
-                1 * textScale,
-                0,
-              ),
-            )}
-          fontSize={labelFontSize}
-          anchorX={isBody ? 'left' : 'right'}
-          anchorY={'bottom'}
-        >
-          {name}
-        </Text>
-        <Line
-          lineWidth={0.9}
-          points={[labelPosition, new THREE.Vector3(0, 0, 0)]}
-        />
-        <Line
-          lineWidth={0.9}
-          points={[
-            labelPosition.clone().add(new THREE.Vector3(0, 5 * textScale, 0)),
-            labelPosition,
-          ]}
-        />
-        <Line
-          lineWidth={0.9}
-          points={[
-            labelPosition
-              .clone()
-              .add(
-                new THREE.Vector3(
-                  (isBody ? 2 : -2) * name.length * textScale,
-                  0,
-                  0,
-                ),
-              ),
-            labelPosition,
-          ]}
-        />
-      </Billboard>
-    </group>
-  )
-}
+import { GPSPointOfInterest } from '../util/gps'
+import { ScaleProvider } from '../hooks/scale'
+import { renderSystemChildren } from '../util/renderChildren'
 
 export function StarSystem(props: {
   system: keyof typeof DraconisExpanseSystem
@@ -316,32 +63,13 @@ export function StarSystem(props: {
     {
       'Reset View': button(resetCamera),
     },
-    [controls],
+    [controls, system],
   )
 
-  const [userGpsList, setPersistedGpsList] = usePersistentState(
-    `userGPSList-${system}`,
-    '',
-  )
-  useControls(
-    'User GPS',
-    () => ({
-      [`gpsList-${system}`]: {
-        label: '',
-        value: userGpsList,
-        // show as multiline text
-        rows: 3,
-        onChange: ((currentSystem: string) => (value: string) => {
-          if (system === currentSystem) setPersistedGpsList(value)
-        })(system),
-      },
-    }),
-    [system, userGpsList, setPersistedGpsList],
-  )
-
-  const [systemData, poiRecord, sortedKeys] = useMemo(() => {
+  // const [systemData, poiRecord, sortedKeys] = useMemo(() => {
+  const [systemData] = useMemo(() => {
     const data = DraconisExpanseSystem[system].clone()
-    data.addFromString(userGpsList)
+    // data.addFromString(userGpsList ?? '')
     const poiRecord = data
       .pois()
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -354,40 +82,48 @@ export function StarSystem(props: {
       )
     const sortedKeys = Object.keys(poiRecord).sort()
     return [data, poiRecord, sortedKeys]
-  }, [system, userGpsList])
+  }, [system])
+  // }, [system, userGpsList])
 
-  const { from: fromPoi, to: toPoi } = useControls(
-    'Route Planner (WIP)',
-    {
-      from: {
-        value: poiRecord[sortedKeys[0]],
-        options: poiRecord,
-      },
-      to: {
-        value: poiRecord[sortedKeys[1]],
-        options: poiRecord,
-      },
-    },
-    [sortedKeys, poiRecord],
-  )
+  // const { from: fromPoi, to: toPoi } = useControls(
+  //   'Route Planner (WIP)',
+  //   {
+  //     from: {
+  //       value: poiRecord[sortedKeys[0]],
+  //       options: poiRecord,
+  //     },
+  //     to: {
+  //       value: poiRecord[sortedKeys[1]],
+  //       options: poiRecord,
+  //     },
+  //   },
+  //   {
+  //     collapsed: true,
+  //   },
+  //   [sortedKeys, poiRecord],
+  // )
 
-  useControls(
-    'Route Planner (WIP)',
-    {
-      'Calculate Optimized Route': button(() => {
-        console.log('Calculating optimized route... TODO :)')
+  // useControls(
+  //   'Route Planner (WIP)',
+  //   {
+  //     'Calculate Optimized Route': button(() => {
+  //       console.log('Calculating optimized route... TODO :)')
 
-        // Calculate optimized route, between fromPoi and toPoi (if possible)
-      }),
-    },
-    [fromPoi, toPoi],
-  )
+  //       alert("This requires math, and I'm not a math person.")
+  //       // Calculate optimized route, between fromPoi and toPoi (if possible)
+  //     }),
+  //   },
+  //   {
+  //     collapsed: true,
+  //   },
+  //   [fromPoi, toPoi],
+  // )
 
   return (
-    <ScaleContext.Provider value={{ coordScale, textScale }}>
+    <ScaleProvider value={{ coordScale, textScale }}>
       <group scale={[coordScale, coordScale, coordScale]}>
         <Points>{renderSystemChildren(systemData)}</Points>
       </group>
-    </ScaleContext.Provider>
+    </ScaleProvider>
   )
 }

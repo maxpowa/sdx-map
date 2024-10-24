@@ -45,10 +45,10 @@ function App() {
       <div
         style={{
           position: 'absolute',
-          bottom: 0,
-          right: 0,
-          padding: '0.2em 0.5em',
-          borderRadius: '0.5em',
+          bottom: 'var(--leva-space-sm)',
+          right: 'var(--leva-space-sm)',
+          padding: 'var(--leva-space-xs) var(--leva-space-sm)',
+          borderRadius: 'var(--leva-radii-sm)',
           color: 'var(--leva-colors-highlight3)',
           backgroundColor: 'var(--leva-colors-elevation1)',
           fontFamily: 'var(--leva-fonts-mono)',
