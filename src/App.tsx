@@ -5,6 +5,15 @@ import { DraconisExpanseSystem } from './data/sdx'
 import { StarSystem } from './components/SystemViewer'
 import { useEffect } from 'react'
 
+const blurbStyle = {
+  padding: 'var(--leva-space-xs) var(--leva-space-sm)',
+  borderRadius: 'var(--leva-radii-sm)',
+  color: 'var(--leva-colors-highlight3)',
+  backgroundColor: 'var(--leva-colors-elevation1)',
+  fontFamily: 'var(--leva-fonts-mono)',
+  fontSize: 'var(--leva-fontSizes-root)',
+}
+
 const keys = Object.keys(DraconisExpanseSystem)
 
 function App() {
@@ -47,15 +56,21 @@ function App() {
           position: 'absolute',
           bottom: 'var(--leva-space-sm)',
           right: 'var(--leva-space-sm)',
-          padding: 'var(--leva-space-xs) var(--leva-space-sm)',
-          borderRadius: 'var(--leva-radii-sm)',
-          color: 'var(--leva-colors-highlight3)',
-          backgroundColor: 'var(--leva-colors-elevation1)',
-          fontFamily: 'var(--leva-fonts-mono)',
-          fontSize: 'var(--leva-fontSizes-root)',
+          ...blurbStyle,
         }}
       >
         * BODIES MAY LOOK DIFFERENT IN-GAME
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 'var(--leva-space-sm)',
+          left: 'var(--leva-space-sm)',
+          ...blurbStyle,
+        }}
+      >
+        SUBMIT MAP BUGS{' '}
+        <a href="https://github.com/maxpowa/sdx-map/issues">HERE</a>
       </div>
     </>
   )
