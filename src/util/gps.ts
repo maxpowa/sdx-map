@@ -1,3 +1,5 @@
+import { Vector3 } from 'three'
+
 // These are somewhat specific to SDX, might make sense to pull this out.
 export const ZoneColors = {
   DX1: '#000000',
@@ -38,27 +40,25 @@ const bodies = {
   Vesta: 39000, // admins say this is 56km, but it seems smaller due to the location of Vesta (Station), compared to the origin of Vesta (Body), or the waypoint for the center of Vesta is wrong.
 } as Record<string, number>
 
-export class GPSPoint {
+export class GPSPoint extends Vector3 {
   class: string
   name: string
-  x: number
-  y: number
-  z: number
   color: string
   category?: string
   radius?: number
   parent?: GPSZone
 
   constructor(
-    cls: string,
-    name: string,
     x: number,
     y: number,
     z: number,
+    cls: string,
+    name: string,
     color: string,
     category?: string,
     parent?: GPSZone,
   ) {
+    super(x, y, z)
     this.class = cls
     this.name = name
     this.x = x
@@ -108,20 +108,20 @@ export class GPSPoint {
 
     if (radixResult[2]) {
       return new GPSZone(
-        name,
         x,
         y,
         z,
+        name,
         ZoneColors[category] ?? color ?? '#FFFFFF',
         parseInt(radixResult[2], 10) * 1000,
         undefined,
         category,
       )
     } else if (bodies[name]) {
-      return new GPSBody(name, x, y, z, color ?? '#C8C8C8', bodies[name] / 2)
+      return new GPSBody(x, y, z, name, color ?? '#C8C8C8', bodies[name] / 2)
     }
 
-    return new GPSPoint('poi', name, x, y, z, color, category)
+    return new GPSPoint(x, y, z, 'poi', name, color, category)
   }
 }
 
@@ -129,16 +129,16 @@ export class GPSBody extends GPSPoint {
   radius: number
 
   constructor(
-    name: string,
     x: number,
     y: number,
     z: number,
+    name: string,
     color: string,
     radius: number,
     category?: string,
     parent?: GPSZone,
   ) {
-    super('body', name, x, y, z, color, category, parent)
+    super(x, y, z, 'body', name, color, category, parent)
     this.radius = radius
   }
 
@@ -152,10 +152,10 @@ export class GPSZone extends GPSPoint {
   children: GPSList
 
   constructor(
-    name: string,
     x: number,
     y: number,
     z: number,
+    name: string,
     color: string,
     radius: number,
     children: GPSList = new GPSList(),
@@ -165,20 +165,15 @@ export class GPSZone extends GPSPoint {
     if (!name.includes(' - (R:')) {
       name += ` - (R:${radius / 1000}km)`
     }
-    super('zone', name, x, y, z, color, category, parent)
+    super(x, y, z, 'zone', name, color, category, parent)
     this.radius = radius
     this.children = children
   }
 
   doesCapture(point: GPSPointOfInterest): boolean {
-    const distance = Math.sqrt(
-      Math.pow(point.x - this.x, 2) +
-        Math.pow(point.y - this.y, 2) +
-        Math.pow(point.z - this.z, 2),
-    )
     // if the point is a zone, double check the radius is smaller than the current zone
     return (
-      distance < this.radius &&
+      point.distanceTo(this) < this.radius &&
       !(GPSZone.isZone(point) && point.radius > this.radius)
     )
   }
@@ -193,6 +188,26 @@ export class GPSZone extends GPSPoint {
       return `${super.toString()}\n${this.children.toString()}`
     }
     return super.toString()
+  }
+
+  // "from" point must be inside of the zone
+  vectorToEdge(from: GPSPoint, padding: number = 0): Vector3 {
+    if (!this.doesCapture(from)) {
+      throw new Error('POI is not within the zone')
+    }
+
+    const distanceFromCenter = from.distanceTo(this)
+    const fromVec = new Vector3(from.x, from.y, from.z)
+    const vec = new Vector3(from.x - this.x, from.y - this.y, from.z - this.z)
+    return fromVec.add(
+      vec
+        .normalize()
+        .multiplyScalar(this.radius - distanceFromCenter + padding),
+    )
+  }
+
+  static isHighSpeed(zone: GPSZone): boolean {
+    return zone.radius >= 2750000
   }
 
   static isZone(point: GPSPointOfInterest): point is GPSZone {
@@ -225,10 +240,50 @@ export class GPSList {
     this.push(...results)
   }
 
-  pois(): GPSPointOfInterest[] {
-    return this.list.flatMap((result) =>
-      GPSZone.isZone(result) ? [...result.children.pois(), result] : [result],
-    )
+  pois(
+    withTurns: boolean = false,
+    recursive: boolean = false,
+  ): GPSPointOfInterest[] {
+    return this.list.flatMap((poi) => {
+      if (GPSZone.isZone(poi) && recursive) {
+        return poi.children.pois(withTurns)
+      }
+      if (withTurns && poi.parent && !GPSZone.isHighSpeed(poi.parent)) {
+        const turnVec = poi.parent?.vectorToEdge(poi)
+        if (turnVec && !turnVec.equals(poi)) {
+          return [
+            poi,
+            new GPSPoint(
+              turnVec.x,
+              turnVec.y,
+              turnVec.z,
+              'turn',
+              `${poi.name} (Turn)`,
+              '#00FFFF',
+              poi.category,
+              poi.parent,
+            ),
+          ]
+        }
+      }
+      return [poi]
+    })
+  }
+
+  zones(withHighSpeed: boolean = false, recursive: boolean = false): GPSZone[] {
+    return this.list.flatMap((result) => {
+      if (GPSZone.isZone(result)) {
+        return withHighSpeed || !GPSZone.isHighSpeed(result)
+          ? [
+              ...(recursive
+                ? result.children.zones(withHighSpeed, recursive)
+                : []),
+              result,
+            ]
+          : []
+      }
+      return []
+    }) as GPSZone[]
   }
 
   map<T>(callback: (point: GPSPointOfInterest, index: number) => T): T[] {
@@ -266,7 +321,7 @@ export class GPSList {
         const zone = zones[i]
         const parentZone = zones.find(
           (potentialParent) =>
-            zone !== potentialParent && zone.doesCapture(potentialParent),
+            zone !== potentialParent && potentialParent.doesCapture(zone),
         )
         if (parentZone) {
           zone.parent = parentZone
@@ -302,3 +357,94 @@ export class GPSList {
     return new GPSList(...results)
   }
 }
+
+export type GPSRoute = GPSPoint[]
+
+export const computeShortestRoute = (
+  from: GPSPoint,
+  to: GPSPoint,
+  world: GPSList,
+): GPSRoute => {
+  const route: GPSRoute = [
+    new GPSPoint(
+      from.x,
+      from.y,
+      from.z,
+      'poi',
+      from.name + ' (Start)',
+      from.color,
+    ),
+  ]
+
+  if (from.parent === to.parent) {
+    const potentialObstacles = from.parent?.children ?? world
+    const unitVector = new Vector3(from.x, from.y, from.z)
+      .sub(new Vector3(to.x, to.y, to.z))
+      .normalize()
+
+    potentialObstacles.map((obstacle) => {
+      if (obstacle === from || obstacle === to) return
+
+      // line-sphere intersection formula
+      // adapted from the formula provided on https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+      const o = new Vector3(from.x, from.y, from.z)
+      const c = new Vector3(obstacle.x, obstacle.y, obstacle.z)
+      const r = obstacle.radius || 10
+      const u = unitVector.clone()
+      const distance = o.distanceTo(c)
+      const nabla = u.dot(o.clone().sub(c)) ** 2 - (distance ** 2 - r ** 2)
+
+      if (nabla < 0) {
+        // no intersection
+      } else {
+        // tangent or two intersections
+        const d = -u.dot(o.clone().sub(c))
+        const midpoint = o.clone().add(u.clone().multiplyScalar(d))
+
+        const distanceFromCenter = midpoint.distanceTo(obstacle)
+        const turnPoint = new Vector3(midpoint.x, midpoint.y, midpoint.z)
+        const vec = new Vector3(
+          midpoint.x - obstacle.x,
+          midpoint.y - obstacle.y,
+          midpoint.z - obstacle.z,
+        )
+
+        // half-radius padding to avoid accidental voxel collision or zone transfer
+        // cap at 50km to avoid excessive padding
+        const bypassPadding = Math.min(r * 0.5, 50000)
+        turnPoint.add(
+          vec
+            .normalize()
+            .multiplyScalar(r - distanceFromCenter + bypassPadding),
+        )
+
+        route.push(
+          new GPSPoint(
+            turnPoint.x,
+            turnPoint.y,
+            turnPoint.z,
+            'poi',
+            obstacle.name + ' (P1)',
+            obstacle.color,
+          ),
+        )
+      }
+    })
+
+    route.push(
+      new GPSPoint(to.x, to.y, to.z, 'poi', to.name + ' (End)', to.color),
+    )
+  }
+  return route
+}
+
+// export const computeRoute = (
+//   from: GPSPoint,
+//   to: GPSPoint,
+//   world: GPSList,
+//   optimize: 'time' | 'distance',
+// ): GPSRoute => {
+//   const route: GPSRoute = [from]
+
+//   return route
+// }

@@ -1,12 +1,8 @@
 import * as THREE from 'three'
 import { Sphere, useTexture } from '@react-three/drei'
-import { ThreeEvent } from '@react-three/fiber'
 
-export const Earth = (props: {
-  radius: number
-  onDoubleClick: (event: ThreeEvent<MouseEvent>) => void
-}) => {
-  const { radius, onDoubleClick } = props
+export const Earth = (props: { radius: number }) => {
+  const { radius } = props
 
   const [dayTexture, nightTexture] = useTexture([
     './planets/earth/day.jpg',
@@ -14,7 +10,7 @@ export const Earth = (props: {
   ])
 
   return (
-    <Sphere args={[radius, 64, 128]} onDoubleClick={onDoubleClick}>
+    <Sphere args={[radius, 64, 128]} rotation={[Math.PI / 2, 0, 0]}>
       <meshPhongMaterial
         map={dayTexture}
         emissiveMap={nightTexture}
@@ -27,16 +23,13 @@ export const Earth = (props: {
   )
 }
 
-export const Planetoid = (props: {
-  radius: number
-  onDoubleClick: (event: ThreeEvent<MouseEvent>) => void
-}) => {
-  const { radius, onDoubleClick } = props
+export const Planetoid = (props: { radius: number }) => {
+  const { radius } = props
 
   const [texture] = useTexture(['./planets/rocky.jpg'])
 
   return (
-    <Sphere args={[radius, 64, 128]} onDoubleClick={onDoubleClick}>
+    <Sphere args={[radius, 64, 128]} rotation={[Math.PI / 2, 0, 0]}>
       <meshPhongMaterial
         map={texture}
         displacementMap={texture}
@@ -57,26 +50,18 @@ const supportedPlanets = [
   'ilus',
   'luna',
 ]
-export const Planet = (props: {
-  radius: number
-  name: string
-  onDoubleClick: (event: ThreeEvent<MouseEvent>) => void
-}) => {
-  const { radius, name, onDoubleClick } = props
+export const Planet = (props: { radius: number; name: string }) => {
+  const { radius, name } = props
   const [texture] = useTexture([`./planets/${name}.jpg`])
 
   return (
-    <Sphere args={[radius, 64, 128]} onDoubleClick={onDoubleClick}>
+    <Sphere args={[radius, 64, 128]} rotation={[Math.PI / 2, 0, 0]}>
       <meshPhongMaterial map={texture} />
     </Sphere>
   )
 }
 
-export const Body = (props: {
-  radius: number
-  name: string
-  onDoubleClick: (event: ThreeEvent<MouseEvent>) => void
-}) => {
+export const Body = (props: { radius: number; name: string }) => {
   const { name } = props
 
   if (name === 'earth') {

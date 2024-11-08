@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { GPSList, GPSPoint, GPSBody, GPSZone } from './gps'
+import {
+  GPSList,
+  GPSPoint,
+  GPSBody,
+  GPSZone,
+  computeShortestRoute,
+} from './gps'
+import { Vector3 } from 'three'
 
 describe('GPS module', () => {
   it('should parse basic GPS data', () => {
@@ -28,7 +35,6 @@ describe('GPS module', () => {
       radius: 10000,
       children: {
         list: [],
-        zoneCount: 0,
       },
     })
   })
@@ -41,12 +47,12 @@ describe('GPS module', () => {
       x: 15,
       y: -15,
       z: 0,
+      category: 'DX2',
       color: '#FF8C00',
       class: 'zone',
       radius: 10000,
       children: {
         list: [],
-        zoneCount: 0,
       },
     })
   })
@@ -115,7 +121,6 @@ describe('GPS module', () => {
           class: 'poi',
         },
       ],
-      zoneCount: 0,
     })
   })
 
@@ -123,5 +128,69 @@ describe('GPS module', () => {
     const gps = `GPS:Hello World:15:-15:0:#FF40EC34:\nGPS:Goodbye World:-15:15:0:#FF40EC34:`
     const result = GPSList.fromString(gps).toString()
     expect(result).toEqual(gps)
+  })
+
+  it('should calculate distances between GPS points', () => {
+    const pointA = new GPSPoint(0, 0, 0, 'poi', 'A', '#FFFFFF')
+    const pointB = new GPSPoint(3, 4, 0, 'poi', 'B', '#FFFFFF')
+    const result = pointA.distanceTo(pointB)
+    expect(result).toEqual(5)
+  })
+
+  it('should calculate distances between GPS points with different z values', () => {
+    const pointA = new GPSPoint(0, 0, 0, 'poi', 'A', '#FFFFFF')
+    const pointB = new GPSPoint(3, 4, 5, 'poi', 'B', '#FFFFFF')
+    const result = pointA.distanceTo(pointB)
+    expect(result).toEqual(7.0710678118654755)
+  })
+
+  it('should calculate the shortest vector to the edge of a zone', () => {
+    const zone = new GPSZone(2, 10, 7, 'A', '#FFFFFF', 10000)
+    const point = new GPSPoint(0, 500, 0, 'poi', 'B', '#FFFFFF')
+    expect(point.distanceTo(zone)).toEqual(490.05407864846916)
+    const result = zone.vectorToEdge(point)
+    expect(result).toEqual(
+      new Vector3(-38.811822350623906, 10008.896475902857, -135.8413782271837),
+    )
+  })
+})
+
+describe('Route Planner', () => {
+  it('should calculate the optimal route between two points with an obstacle', () => {
+    const world = GPSList.fromString(`
+      GPS:Deimos:900000:-800000:0:#FF40EC34:
+      GPS:Phobos:650000:-650000:-250000:#FF40EC34:
+      GPS:Mars:750000:-750000:-80000:#FF40EC34:
+      GPS:Mars - (R:400km):750000:-750000:-80000:#FFFFFF00:DX3:
+    `)
+    const deimos = world.pois()[0]
+    const phobos = world.pois()[1]
+    const result = computeShortestRoute(deimos, phobos, world)
+    expect(result).toEqual([
+      {
+        class: 'poi',
+        color: '#FF40EC34',
+        name: 'Deimos (Start)',
+        x: 900000,
+        y: -800000,
+        z: 0,
+      },
+      {
+        class: 'poi',
+        color: '#FF40EC34',
+        name: 'Mars (P1)',
+        x: 818284.8084155913,
+        y: -722395.5029809312,
+        z: -131722.11020414988,
+      },
+      {
+        class: 'poi',
+        color: '#FF40EC34',
+        name: 'Phobos (End)',
+        x: 650000,
+        y: -650000,
+        z: -250000,
+      },
+    ])
   })
 })

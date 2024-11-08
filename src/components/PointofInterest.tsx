@@ -2,12 +2,11 @@ import * as THREE from 'three'
 import { Billboard, Sphere, Line, Text } from '@react-three/drei'
 import { useThree, ThreeEvent } from '@react-three/fiber'
 import { useControls } from 'leva'
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import { OrbitControls } from 'three-stdlib'
 import { useScale, useTextScale } from '../hooks/scale'
 import { GPSPointOfInterest, GPSBody } from '../util/gps'
 import { Body } from './Planet'
-import React from 'react'
 
 export function POI(props: { poi: GPSPointOfInterest }) {
   const { poi } = props
@@ -16,7 +15,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
 
   const scale = useScale()
   const textScale = useTextScale()
-  const controls = useThree((state) => state.controls) as OrbitControls
+  const [hovered, hover] = useState(false)
 
   const isBody = GPSBody.isBody(poi)
 
@@ -47,6 +46,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
     },
   }))
 
+  const controls = useThree((state) => state.controls) as OrbitControls
   const onDoubleClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
       if (!controls) return
@@ -56,28 +56,40 @@ export function POI(props: { poi: GPSPointOfInterest }) {
         poi.z * scale,
       )
       controls.target = targetPosition
+      const cameraPosition = targetPosition
+        .clone()
+        .add(
+          controls.object.position
+            .normalize()
+            .multiplyScalar((radius ?? 10000) * scale * 2),
+        )
       controls.object.position.set(
-        targetPosition.x,
-        targetPosition.y,
-        targetPosition.z + (radius ?? 10000) * scale * 2,
+        cameraPosition.x,
+        cameraPosition.y,
+        cameraPosition.z,
       )
-      set({ Information: name })
-      set({ GPS: poi.toString() })
+      set({ Information: name, GPS: poi.toString() })
       event.stopPropagation()
     },
     [controls, poi, scale, radius, set, name],
   )
 
   return (
-    <group position={new THREE.Vector3(x, y, z)}>
+    <group
+      position={new THREE.Vector3(x, y, z)}
+      onDoubleClick={onDoubleClick}
+      onPointerOver={(event) => {
+        event.stopPropagation()
+        hover(true)
+      }}
+      onPointerOut={() => {
+        hover(false)
+      }}
+    >
       {isBody ? (
-        <Body
-          name={name.toLocaleLowerCase()}
-          radius={poi.radius}
-          onDoubleClick={onDoubleClick}
-        />
+        <Body name={name.toLocaleLowerCase()} radius={poi.radius} />
       ) : (
-        <Sphere args={[5 * textScale]} onDoubleClick={onDoubleClick}>
+        <Sphere args={[5 * textScale]}>
           <meshStandardMaterial color={color} />
         </Sphere>
       )}
@@ -96,6 +108,9 @@ export function POI(props: { poi: GPSPointOfInterest }) {
           fontSize={labelFontSize}
           anchorX={isBody ? 'left' : 'right'}
           anchorY={'bottom'}
+          outlineWidth={hovered ? 0.5 * textScale : 0}
+          outlineBlur={hovered ? 0.5 * textScale : 0}
+          outlineColor={poi.parent?.color ?? '#FFFFFF'}
         >
           {name}
         </Text>

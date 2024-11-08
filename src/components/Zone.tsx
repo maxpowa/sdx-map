@@ -1,21 +1,22 @@
 import * as THREE from 'three'
 import { Billboard, Sphere, Text } from '@react-three/drei'
-import { useThree, ThreeEvent } from '@react-three/fiber'
-import { useControls } from 'leva'
-import { useRef, useState, useCallback } from 'react'
-import { OrbitControls } from 'three-stdlib'
-import { GPSZone } from '../util/gps'
+import { useCallback, useRef, useState } from 'react'
+import { GPSList, GPSZone } from '../util/gps'
 import { useScale, useTextScale } from '../hooks/scale'
-import { renderSystemChildren } from '../util/renderChildren'
+import { ThreeEvent, useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls } from 'three/examples/jsm/Addons.js'
+import { useControls } from 'leva'
 
-export function Zone(props: { zone: GPSZone }) {
-  const { zone } = props
+export function Zone(props: {
+  zone: GPSZone
+  renderChildren: (data: GPSList) => JSX.Element
+}) {
+  const { zone, renderChildren } = props
   const { children, color, radius } = zone
   const [x, y, z] = zone.relativeCoords()
 
   const groupRef = useRef<THREE.Group>(null!)
   const [hovered, hover] = useState(false)
-  const controls = useThree((state) => state.controls) as OrbitControls
 
   const scale = useScale()
   const textScale = useTextScale()
@@ -24,7 +25,25 @@ export function Zone(props: { zone: GPSZone }) {
   const position = new THREE.Vector3(x, y, z)
   const scaledRadius = radius * scale
 
-  const isSlowZone = radius < 2750000
+  const isHighSpeed = GPSZone.isHighSpeed(zone)
+
+  const [showText, setShowText] = useState(true)
+  useFrame((state) => {
+    // const cameraDistance = state.controls?.object?.position.distanceTo(position)
+    state.camera.updateProjectionMatrix()
+    const controls = state.controls as OrbitControls
+    const cameraDistance = controls.getDistance()
+    // console.log(cameraDistance)
+    if (
+      cameraDistance &&
+      (cameraDistance < scaledRadius * 2.2 ||
+        cameraDistance > scaledRadius * 20)
+    ) {
+      setShowText(false)
+    } else {
+      setShowText(true)
+    }
+  })
 
   const [, set] = useControls('Selected Point of Interest', () => ({
     Information: {
@@ -37,46 +56,59 @@ export function Zone(props: { zone: GPSZone }) {
     },
   }))
 
+  const controls = useThree((state) => state.controls) as OrbitControls
   const onDoubleClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
       if (!controls) return
-      if (!isSlowZone) return
-      const scaledPosition = new THREE.Vector3(x * scale, y * scale, z * scale)
-      controls.target = scaledPosition
-      controls.object.position.set(
-        scaledPosition.x,
-        scaledPosition.y,
-        scaledRadius * 0.8,
+      if (isHighSpeed) return
+      const targetPosition = new THREE.Vector3(
+        zone.x * scale,
+        zone.y * scale,
+        zone.z * scale,
       )
-      set({ Information: `${zone.name} (Zone ${zone.category})` })
-      set({ GPS: zone.toString() })
+      controls.target = targetPosition
+      const cameraPosition = targetPosition
+        .clone()
+        .add(
+          controls.object.position
+            .normalize()
+            .multiplyScalar(scaledRadius * 0.8),
+        )
+      controls.object.position.set(
+        cameraPosition.x,
+        cameraPosition.y,
+        cameraPosition.z,
+      )
+      set({
+        Information: `${zone.name} (Zone ${zone.category})`,
+        GPS: zone.toString(),
+      })
       event.stopPropagation()
     },
-    [controls, isSlowZone, scale, scaledRadius, set, x, y, z, zone],
+    [controls, isHighSpeed, scale, scaledRadius, set, zone],
   )
 
   return (
     <group ref={groupRef} position={position}>
       <Billboard
-        {...(isSlowZone
+        {...(isHighSpeed
           ? {}
           : {
               onPointerOver: (event) => {
-                if (!isSlowZone) return
                 event.stopPropagation()
                 hover(true)
               },
               onPointerOut: () => {
                 hover(false)
               },
+              onDoubleClick,
             })}
       >
         <mesh
-          onDoubleClick={onDoubleClick}
           userData={{
             name: zone.name,
             radius: scaledRadius,
-            isSlowZone,
+            isHighSpeed,
             origin: position,
           }}
         >
@@ -89,22 +121,21 @@ export function Zone(props: { zone: GPSZone }) {
               blending={THREE.AdditiveBlending}
             />
           </Sphere>
-          {isSlowZone && (
-            <Text
-              font={'./RobotoMono-Regular.ttf'}
-              position={[0, 0, 1000 / scale]}
-              textAlign="left"
-              fontSize={100 * textScale}
-              outlineWidth={hovered ? 1 : 0}
-              outlineBlur={1}
-              outlineColor={color}
-            >
-              {zone.name}
-            </Text>
-          )}
+          <Text
+            visible={showText || hovered}
+            font={'./RobotoMono-Regular.ttf'}
+            position={[0, 0, 1000 / scale]}
+            textAlign="left"
+            fontSize={100 * textScale}
+            outlineWidth={hovered ? 3 * textScale : 0}
+            outlineBlur={hovered ? 1 * textScale : 0}
+            outlineColor={color}
+          >
+            {zone.name}
+          </Text>
         </mesh>
       </Billboard>
-      {renderSystemChildren(children)}
+      {renderChildren(children)}
     </group>
   )
 }
