@@ -12,10 +12,11 @@ export function renderSystemChildren(
       {data.pois(withTurns).map((each: GPSPoint) => {
         return <POI poi={each} key={each.name} />
       })}
-      {data.zones(withHighSpeed).map((each: GPSZone) => (
+      {data.zones(true).map((each: GPSZone) => (
         <Zone
           zone={each}
           key={each.name}
+          visible={!(GPSZone.isHighSpeed(each) && !withHighSpeed)}
           renderChildren={(data: GPSList) => {
             return renderSystemChildren(data, withTurns, withHighSpeed)
           }}

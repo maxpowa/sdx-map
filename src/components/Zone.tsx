@@ -6,12 +6,14 @@ import { useScale, useTextScale } from '../hooks/scale'
 import { ThreeEvent, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from 'three/examples/jsm/Addons.js'
 import { useControls } from 'leva'
+import MeshFresnelMaterial from './MeshFresnelMaterial'
 
 export function Zone(props: {
   zone: GPSZone
+  visible: boolean
   renderChildren: (data: GPSList) => JSX.Element
 }) {
-  const { zone, renderChildren } = props
+  const { zone, visible, renderChildren } = props
   const { children, color, radius } = zone
   const [x, y, z] = zone.relativeCoords()
 
@@ -29,14 +31,16 @@ export function Zone(props: {
 
   const [showText, setShowText] = useState(true)
   useFrame((state) => {
+    if (!visible) return
+
     // const cameraDistance = state.controls?.object?.position.distanceTo(position)
     state.camera.updateProjectionMatrix()
     const controls = state.controls as OrbitControls
-    const cameraDistance = controls.getDistance()
+    const cameraDistance = controls?.getDistance()
     // console.log(cameraDistance)
     if (
       cameraDistance &&
-      (cameraDistance < scaledRadius * 2.2 ||
+      (cameraDistance < scaledRadius * 2.5 ||
         cameraDistance > scaledRadius * 20)
     ) {
       setShowText(false)
@@ -45,7 +49,7 @@ export function Zone(props: {
     }
   })
 
-  const [, set] = useControls('Selected Point of Interest', () => ({
+  const [, set] = useControls('Focused Point of Interest', () => ({
     Information: {
       value: '',
       editable: false,
@@ -90,51 +94,54 @@ export function Zone(props: {
 
   return (
     <group ref={groupRef} position={position}>
-      <Billboard
-        {...(isHighSpeed
-          ? {}
-          : {
-              onPointerOver: (event) => {
-                event.stopPropagation()
-                hover(true)
-              },
-              onPointerOut: () => {
-                hover(false)
-              },
-              onDoubleClick,
-            })}
-      >
-        <mesh
-          userData={{
-            name: zone.name,
-            radius: scaledRadius,
-            isHighSpeed,
-            origin: position,
-          }}
+      {visible && (
+        <Billboard
+          {...(isHighSpeed
+            ? {}
+            : {
+                onPointerOver: (event) => {
+                  event.stopPropagation()
+                  hover(true)
+                },
+                onPointerOut: () => {
+                  hover(false)
+                },
+                onDoubleClick,
+              })}
         >
-          <Sphere args={[radius]}>
-            <meshPhongMaterial
-              color={color}
-              transparent={false}
-              opacity={hovered ? 0.7 : 0.4}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
-          </Sphere>
-          <Text
-            visible={showText || hovered}
-            font={'./RobotoMono-Regular.ttf'}
-            position={[0, 0, 1000 / scale]}
-            textAlign="left"
-            fontSize={100 * textScale}
-            outlineWidth={hovered ? 3 * textScale : 0}
-            outlineBlur={hovered ? 1 * textScale : 0}
-            outlineColor={color}
-          >
-            {zone.name}
-          </Text>
-        </mesh>
-      </Billboard>
+          <mesh>
+            <Sphere args={[radius, 64, 128]}>
+              <meshPhongMaterial
+                color={color}
+                transparent={false}
+                opacity={0.4}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+              />
+            </Sphere>
+            <Sphere args={[radius, 64, 128]}>
+              <MeshFresnelMaterial
+                intensity={1}
+                amount={hovered ? 1 : 5}
+                baseColor={color}
+                fresnelColor={color}
+              />
+            </Sphere>
+            <Text
+              visible={showText || hovered}
+              font={'./RobotoMono-Regular.ttf'}
+              position={[0, 0, 1000 / scale]}
+              textAlign="left"
+              fontSize={100 * textScale}
+              outlineWidth={hovered ? 3 * textScale : 0}
+              outlineBlur={hovered ? 1 * textScale : 0}
+              outlineColor={color}
+            >
+              {zone.name}
+            </Text>
+          </mesh>
+        </Billboard>
+      )}
       {renderChildren(children)}
     </group>
   )

@@ -7,14 +7,17 @@ import { OrbitControls } from 'three-stdlib'
 import { useScale, useTextScale } from '../hooks/scale'
 import { GPSPointOfInterest, GPSBody } from '../util/gps'
 import { Body } from './Planet'
+import MeshFresnelMaterial from './MeshFresnelMaterial'
 
 export function POI(props: { poi: GPSPointOfInterest }) {
   const { poi } = props
-  const { name, color, radius } = poi
+  const { name, color } = poi
   const [x, y, z] = poi.relativeCoords()
 
   const scale = useScale()
   const textScale = useTextScale()
+  const radius = poi.radius ?? 5 * textScale
+
   const [hovered, hover] = useState(false)
 
   const isBody = GPSBody.isBody(poi)
@@ -31,11 +34,11 @@ export function POI(props: { poi: GPSPointOfInterest }) {
   }, [textScale, poi])
 
   const labelFontSize = useMemo(
-    () => (radius ? 12 : 8) * textScale,
-    [radius, textScale],
+    () => (isBody ? 12 : 8) * textScale,
+    [isBody, textScale],
   )
 
-  const [, set] = useControls('Selected Point of Interest', () => ({
+  const [, set] = useControls('Focused Point of Interest', () => ({
     Information: {
       value: '',
       editable: false,
@@ -61,7 +64,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
         .add(
           controls.object.position
             .normalize()
-            .multiplyScalar((radius ?? 10000) * scale * 2),
+            .multiplyScalar((isBody ? radius : 10000) * scale * 2),
         )
       controls.object.position.set(
         cameraPosition.x,
@@ -71,7 +74,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
       set({ Information: name, GPS: poi.toString() })
       event.stopPropagation()
     },
-    [controls, poi, scale, radius, set, name],
+    [controls, poi, scale, isBody, radius, set, name],
   )
 
   return (
@@ -87,10 +90,24 @@ export function POI(props: { poi: GPSPointOfInterest }) {
       }}
     >
       {isBody ? (
-        <Body name={name.toLocaleLowerCase()} radius={poi.radius} />
+        <>
+          <Sphere args={[radius, 64, 128]}>
+            <MeshFresnelMaterial
+              fresnelColor={color}
+              intensity={1}
+              baseAlpha={hovered ? 0.5 : 0.15}
+              amount={hovered ? 2 : 5}
+            />
+          </Sphere>
+          <Body name={name.toLocaleLowerCase()} radius={poi.radius} />{' '}
+        </>
       ) : (
-        <Sphere args={[5 * textScale]}>
-          <meshStandardMaterial color={color} />
+        <Sphere args={[radius]}>
+          <MeshFresnelMaterial
+            fresnelColor={color}
+            baseColor={poi.parent?.color ?? color}
+            amount={hovered ? 0.5 : 1}
+          />
         </Sphere>
       )}
       <Billboard>
@@ -108,7 +125,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
           fontSize={labelFontSize}
           anchorX={isBody ? 'left' : 'right'}
           anchorY={'bottom'}
-          outlineWidth={hovered ? 0.5 * textScale : 0}
+          outlineWidth={hovered ? 0.25 * textScale : 0}
           outlineBlur={hovered ? 0.5 * textScale : 0}
           outlineColor={poi.parent?.color ?? '#FFFFFF'}
         >
@@ -116,7 +133,13 @@ export function POI(props: { poi: GPSPointOfInterest }) {
         </Text>
         <Line
           lineWidth={0.9}
-          points={[labelPosition, new THREE.Vector3(0, 0, 0)]}
+          points={[
+            new THREE.Vector3(0, 0, 0)
+              .add(labelPosition)
+              .normalize()
+              .multiplyScalar(radius),
+            labelPosition,
+          ]}
         />
         <Line
           lineWidth={0.9}

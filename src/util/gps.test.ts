@@ -7,40 +7,42 @@ import {
   computeShortestRoute,
 } from './gps'
 import { Vector3 } from 'three'
+import { DraconisExpanseSystem } from '../data/sdx'
 
 describe('GPS module', () => {
   it('should parse basic GPS data', () => {
-    const gps = 'GPS:Hello World:15:-15:0:#FF40EC34:'
+    const gps = 'GPS:Hello World:15:-15:0:#40EC34:'
     const result = GPSPoint.fromString(gps)
     expect(result).toEqual({
       name: 'Hello World',
       x: 15,
       y: -15,
       z: 0,
-      color: '#FF40EC34',
+      color: '#40EC34',
       class: 'poi',
     })
   })
 
   it('should parse GPS data with radius', () => {
-    const gps = 'GPS:Hello World - (R:10km):15:-15:0:#FF40EC34:'
+    const gps = 'GPS:Hello World - (R:10km):15:-15:0:#40EC34:'
     const result = GPSZone.fromString(gps)
     expect(result).toEqual({
       name: 'Hello World - (R:10km)',
       x: 15,
       y: -15,
       z: 0,
-      color: '#FF40EC34',
+      color: '#40EC34',
       class: 'zone',
       radius: 10000,
       children: {
         list: [],
+        zoneCount: 0,
       },
     })
   })
 
   it('should parse GPS data with radius and category-based color', () => {
-    const gps = 'GPS:Hello World - (R:10km):15:-15:0:#FF40EC34:DX2:'
+    const gps = 'GPS:Hello World - (R:10km):15:-15:0:#40EC34:DX2:'
     const result = GPSZone.fromString(gps)
     expect(result).toEqual({
       name: 'Hello World - (R:10km)',
@@ -53,12 +55,13 @@ describe('GPS module', () => {
       radius: 10000,
       children: {
         list: [],
+        zoneCount: 0,
       },
     })
   })
 
   it('should parse GPS data with known body', () => {
-    const gps = 'GPS:Earth:15:-15:0:#FF40EC34:'
+    const gps = 'GPS:Earth:15:-15:0:#40EC34:'
     const result = GPSBody.fromString(gps)
     expect(result).toEqual({
       name: 'Earth',
@@ -66,19 +69,19 @@ describe('GPS module', () => {
       y: -15,
       z: 0,
       category: undefined,
-      color: '#FF40EC34',
+      color: '#40EC34',
       class: 'body',
       radius: 100000,
     })
   })
 
   it('should be reasonably robust against colons in GPS names', () => {
-    const gps = 'GPS:Hello:World:15:-15:0:#FF40EC34:'
+    const gps = 'GPS:Hello:World:15:-15:0:#40EC34:'
     const result = GPSPoint.fromString(gps)
     expect(result).toEqual({
       category: undefined,
       class: 'poi',
-      color: '#FF40EC34',
+      color: '#40EC34',
       name: 'Hello:World',
       x: 15,
       y: -15,
@@ -100,7 +103,7 @@ describe('GPS module', () => {
   })
 
   it('should parse GPS list data', () => {
-    const gps = `GPS:Hello World:15:-15:0:#FF40EC34:\nGPS:Goodbye World:-15:15:0:#FF40EC34:`
+    const gps = `GPS:Hello World:15:-15:0:#40EC34:\nGPS:Goodbye World:-15:15:0:#40EC34:`
     const result = GPSList.fromString(gps)
     expect(result).toEqual({
       list: [
@@ -109,7 +112,7 @@ describe('GPS module', () => {
           x: 15,
           y: -15,
           z: 0,
-          color: '#FF40EC34',
+          color: '#40EC34',
           class: 'poi',
         },
         {
@@ -117,10 +120,11 @@ describe('GPS module', () => {
           x: -15,
           y: 15,
           z: 0,
-          color: '#FF40EC34',
+          color: '#40EC34',
           class: 'poi',
         },
       ],
+      zoneCount: 0,
     })
   })
 
@@ -158,39 +162,27 @@ describe('GPS module', () => {
 describe('Route Planner', () => {
   it('should calculate the optimal route between two points with an obstacle', () => {
     const world = GPSList.fromString(`
-      GPS:Deimos:900000:-800000:0:#FF40EC34:
-      GPS:Phobos:650000:-650000:-250000:#FF40EC34:
-      GPS:Mars:750000:-750000:-80000:#FF40EC34:
+      GPS:Deimos:900000:-800000:0:#40EC34:
+      GPS:Phobos:650000:-650000:-250000:#40EC34:
+      GPS:Mars:750000:-750000:-80000:#40EC34:
       GPS:Mars - (R:400km):750000:-750000:-80000:#FFFFFF00:DX3:
     `)
-    const deimos = world.pois()[0]
-    const phobos = world.pois()[1]
+    const deimos = world.pois(false, true)[0]
+    const phobos = world.pois(false, true)[1]
     const result = computeShortestRoute(deimos, phobos, world)
-    expect(result).toEqual([
-      {
-        class: 'poi',
-        color: '#FF40EC34',
-        name: 'Deimos (Start)',
-        x: 900000,
-        y: -800000,
-        z: 0,
-      },
-      {
-        class: 'poi',
-        color: '#FF40EC34',
-        name: 'Mars (P1)',
-        x: 818284.8084155913,
-        y: -722395.5029809312,
-        z: -131722.11020414988,
-      },
-      {
-        class: 'poi',
-        color: '#FF40EC34',
-        name: 'Phobos (End)',
-        x: 650000,
-        y: -650000,
-        z: -250000,
-      },
-    ])
+    expect(result).toMatchSnapshot()
+  })
+
+  it('should calculate a complex route', () => {
+    const globalData = DraconisExpanseSystem['Sol']
+    const deimos = globalData
+      .pois(false, true)
+      .find((body) => body.name === 'Deimos') as GPSPoint
+    const ariel = globalData
+      .pois(false, true)
+      .find((body) => body.name === 'Ariel') as GPSPoint
+
+    const route = computeShortestRoute(deimos, ariel, globalData)
+    expect(route).toMatchSnapshot()
   })
 })

@@ -15,20 +15,23 @@ export const ZoneColors = {
 // Sources:
 // https://discord.com/channels/516135382191177728/990099184810078248/1293984387754623078
 // https://discord.com/channels/516135382191177728/911150478325325824/1292874325715587205
+// Anything divided by 0.7 is an approximation, since most planets in SE have approximately 70% of their radius as their actual surface radius with the rest being atmosphere/gravity well
+// It's not that I don't trust the data shared on the discord, but that the data doesn't seem to be accurate.
+// I think some of the sizes are based on the size of the amosphere.
 const bodies = {
   Ariel: 20000,
-  Ceres: 60000,
+  Ceres: 60000 / 0.7,
   Deimos: 9000,
   Earth: 200000,
   Europa: 21000,
-  Ganymede: 35000,
-  Ilus: 120000, // guess, no source
-  'Ilus 1': 16000, // rough estimate based on survey data (I went there and figured an approximate value)
+  Ganymede: 35000 / 0.7,
+  Ilus: 120000 / 0.7, // guess, no source
+  'Ilus 1': 16000 / 0.7, // rough estimate based on survey data (I went there and figured an approximate value)
   Io: 22000,
-  Jannah: 385000,
+  Jannah: 385000 / 0.7,
   Jupiter: 280000,
-  Kronos: 130000, // guess, no source
-  'Kronos 1': 20000, // guess, no source
+  Kronos: 130000 / 0.7, // guess, no source
+  'Kronos 1': 20000 / 0.7, // guess, no source
   Luna: 28000,
   Mars: 120000,
   Pallas: 28000,
@@ -37,8 +40,10 @@ const bodies = {
   Saturn: 120000,
   Titan: 20000,
   Uranus: 160000,
-  Vesta: 39000, // admins say this is 56km, but it seems smaller due to the location of Vesta (Station), compared to the origin of Vesta (Body), or the waypoint for the center of Vesta is wrong.
+  Vesta: 56000,
 } as Record<string, number>
+
+const TURN_DISTANCE = 2500
 
 export class GPSPoint extends Vector3 {
   class: string
@@ -79,7 +84,7 @@ export class GPSPoint extends Vector3 {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   toString(_: boolean = false): string {
-    let result = `GPS:${this.name}:${this.x}:${this.y}:${this.z}:${this.color}:`
+    let result = `GPS:${this.name}:${this.x}:${this.y}:${this.z}:#FF${this.color.substring(1)}:`
     if (this.category) result += `${this.category}:`
     return result
   }
@@ -103,7 +108,10 @@ export class GPSPoint extends Vector3 {
     const y = parseFloat(result[3])
     const z = parseFloat(result[4])
 
-    const color = result[5]
+    let color = result[5]
+    if (color.length > 6) {
+      color = '#' + color.substring(color.length - 6)
+    }
     const category = result[6]
 
     if (radixResult[2]) {
@@ -245,11 +253,11 @@ export class GPSList {
     recursive: boolean = false,
   ): GPSPointOfInterest[] {
     return this.list.flatMap((poi) => {
-      if (GPSZone.isZone(poi) && recursive) {
-        return poi.children.pois(withTurns)
+      if (GPSZone.isZone(poi)) {
+        return recursive ? poi.children.pois(withTurns, recursive) : []
       }
       if (withTurns && poi.parent && !GPSZone.isHighSpeed(poi.parent)) {
-        const turnVec = poi.parent?.vectorToEdge(poi)
+        const turnVec = poi.parent?.vectorToEdge(poi, TURN_DISTANCE)
         if (turnVec && !turnVec.equals(poi)) {
           return [
             poi,
@@ -280,10 +288,20 @@ export class GPSList {
                 : []),
               result,
             ]
-          : []
+          : [
+              ...(recursive
+                ? result.children.zones(withHighSpeed, recursive)
+                : []),
+            ]
       }
       return []
     }) as GPSZone[]
+  }
+
+  sort(
+    compareFn?: (a: GPSPointOfInterest, b: GPSPointOfInterest) => number,
+  ): GPSPointOfInterest[] {
+    return this.list.sort(compareFn)
   }
 
   map<T>(callback: (point: GPSPointOfInterest, index: number) => T): T[] {
@@ -360,91 +378,259 @@ export class GPSList {
 
 export type GPSRoute = GPSPoint[]
 
-export const computeShortestRoute = (
+// This is a rough estimate of the distance required to reach max speed
+export const distanceToMaxSpeed = (
+  accel: number,
+  maxSpeed: number,
+  initialSpeed = 0,
+): number => {
+  return maxSpeed ** 2 - initialSpeed ** 2 / (2 * accel)
+}
+
+export enum RoutingModes {
+  None = 0,
+  // Do not allow lithoturns (will ensure waypoints that enter zones are just outside of the zone)
+  No_Lithoturns = 1 << 0,
+  // Internal, used for the recursion to know when to ignore the zone check
+  NavigatingAroundZoneToEntry = 1 << 1,
+  DeterminedStartDirection = 1 << 2,
+}
+
+export function* traverseRoutingPath(
   from: GPSPoint,
   to: GPSPoint,
   world: GPSList,
-): GPSRoute => {
-  const route: GPSRoute = [
-    new GPSPoint(
+  mode: RoutingModes = 0,
+): Generator<GPSPoint, void> {
+  if (from.equals(to)) return
+
+  const zones = world.zones(true, true)
+  const fromZone = from.parent ?? zones.find((zone) => zone.doesCapture(from))
+  const toZone = to.parent ?? zones.find((zone) => zone.doesCapture(to))
+  if (
+    fromZone !== toZone &&
+    fromZone &&
+    (mode & RoutingModes.DeterminedStartDirection) !==
+      RoutingModes.DeterminedStartDirection
+  ) {
+    const start = new GPSPoint(
       from.x,
       from.y,
       from.z,
       'poi',
-      from.name + ' (Start)',
+      from.name,
       from.color,
-    ),
-  ]
-
-  if (from.parent === to.parent) {
-    const potentialObstacles = from.parent?.children ?? world
-    const unitVector = new Vector3(from.x, from.y, from.z)
-      .sub(new Vector3(to.x, to.y, to.z))
-      .normalize()
-
-    potentialObstacles.map((obstacle) => {
-      if (obstacle === from || obstacle === to) return
-
-      // line-sphere intersection formula
-      // adapted from the formula provided on https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
-      const o = new Vector3(from.x, from.y, from.z)
-      const c = new Vector3(obstacle.x, obstacle.y, obstacle.z)
-      const r = obstacle.radius || 10
-      const u = unitVector.clone()
-      const distance = o.distanceTo(c)
-      const nabla = u.dot(o.clone().sub(c)) ** 2 - (distance ** 2 - r ** 2)
-
-      if (nabla < 0) {
-        // no intersection
-      } else {
-        // tangent or two intersections
-        const d = -u.dot(o.clone().sub(c))
-        const midpoint = o.clone().add(u.clone().multiplyScalar(d))
-
-        const distanceFromCenter = midpoint.distanceTo(obstacle)
-        const turnPoint = new Vector3(midpoint.x, midpoint.y, midpoint.z)
-        const vec = new Vector3(
-          midpoint.x - obstacle.x,
-          midpoint.y - obstacle.y,
-          midpoint.z - obstacle.z,
-        )
-
-        // half-radius padding to avoid accidental voxel collision or zone transfer
-        // cap at 50km to avoid excessive padding
-        const bypassPadding = Math.min(r * 0.5, 50000)
-        turnPoint.add(
-          vec
-            .normalize()
-            .multiplyScalar(r - distanceFromCenter + bypassPadding),
-        )
-
-        route.push(
-          new GPSPoint(
-            turnPoint.x,
-            turnPoint.y,
-            turnPoint.z,
-            'poi',
-            obstacle.name + ' (P1)',
-            obstacle.color,
-          ),
-        )
-      }
-    })
-
-    route.push(
-      new GPSPoint(to.x, to.y, to.z, 'poi', to.name + ' (End)', to.color),
     )
+
+    // Vector to TURN_DISTANCE outside of zone
+    // With user GPS points, we will need to check for body collisions here, since you may have a GPS point between the planet and a moon
+    let vec
+    if (fromZone.equals(from)) {
+      // starting point and zone are the same position, so need to calculate a vector to the edge using our overall direction unit vector
+      vec = new Vector3()
+        .subVectors(to, from)
+        .normalize()
+        .multiplyScalar(fromZone.radius + TURN_DISTANCE)
+        .add(from)
+    } else {
+      vec = fromZone.vectorToEdge(from, TURN_DISTANCE)
+    }
+    const newFromPoint = new GPSPoint(
+      vec.x,
+      vec.y,
+      vec.z,
+      'poi',
+      `Turn (${from.name})`,
+      from.color,
+    )
+
+    console.log('Routing out of zone', fromZone.name)
+    yield* traverseRoutingPath(
+      start,
+      newFromPoint,
+      fromZone.children,
+      mode | RoutingModes.DeterminedStartDirection,
+    )
+
+    console.log('Continuing to destination')
+    yield* traverseRoutingPath(
+      newFromPoint,
+      to,
+      world,
+      mode | RoutingModes.DeterminedStartDirection,
+    )
+    return
   }
-  return route
+
+  const unitVector = new Vector3(to.x, to.y, to.z)
+    .sub(new Vector3(from.x, from.y, from.z))
+    .normalize()
+
+  const obstacles = [...zones, ...world.pois(false, true)]
+  const sortedObstacles = obstacles
+    .filter((obstacle) => {
+      // filter to relevant obstacles
+      if (obstacle.equals(from) || obstacle.equals(to)) {
+        return false
+      } else if (GPSZone.isZone(obstacle)) {
+        if (GPSZone.isHighSpeed(obstacle)) {
+          return false
+        } else if (
+          from.distanceTo(obstacle) >
+          from.distanceTo(to) + obstacle.radius
+        ) {
+          return false
+        } else if (obstacle.doesCapture(from) && obstacle.doesCapture(to)) {
+          // if this zone captures both from and to, it's not an applicable obstacle
+          return false
+        }
+      }
+      return true
+    })
+    .sort((a, b) => a.distanceTo(from) - b.distanceTo(from))
+
+  for (const obstacle of sortedObstacles) {
+    if (
+      (mode & RoutingModes.NavigatingAroundZoneToEntry) !==
+        RoutingModes.NavigatingAroundZoneToEntry &&
+      GPSZone.isZone(obstacle) &&
+      !GPSZone.isHighSpeed(obstacle) &&
+      obstacle.doesCapture(to) &&
+      !obstacle.doesCapture(from)
+    ) {
+      // Lithobraking only applies when entering into a zone from outside, in other cases it is not required
+
+      const allowsLithobraking =
+        (mode & RoutingModes.No_Lithoturns) !== RoutingModes.No_Lithoturns
+      // vector exactly to the optimal point on the edge of the zone (utilize zone speed limits to brake)
+      // 1km to the inside of the zone should guarantee we actally end up inside the zone
+      // This should give NavOS a chance to reorient before reaching the waypoint
+      const vec = obstacle.vectorToEdge(
+        to,
+        allowsLithobraking ? -TURN_DISTANCE : TURN_DISTANCE,
+      )
+      const newFromPoint = new GPSPoint(
+        vec.x,
+        vec.y,
+        vec.z,
+        'poi',
+        allowsLithobraking
+          ? `Lithoturn (${obstacle.name})`
+          : `Turn (${obstacle.name})`,
+        from.color,
+      )
+
+      console.log(newFromPoint.name)
+
+      yield* traverseRoutingPath(
+        from,
+        newFromPoint,
+        world,
+        mode | RoutingModes.NavigatingAroundZoneToEntry,
+      )
+      yield* traverseRoutingPath(
+        newFromPoint,
+        to,
+        obstacle.children,
+        mode | RoutingModes.NavigatingAroundZoneToEntry,
+      )
+      return
+    }
+
+    // line-sphere intersection formula
+    // adapted from the formula provided on https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+    const o = new Vector3(from.x, from.y, from.z)
+    const c = new Vector3(obstacle.x, obstacle.y, obstacle.z)
+    // Either use the radius of the obstacle (if a body), or 5km as a safeguard against user GPS points (which may have loaded grids under them)
+    const r = obstacle.radius ?? TURN_DISTANCE
+    const u = unitVector.clone()
+    const normal = o.distanceTo(c)
+    const nabla = u.dot(o.clone().sub(c)) ** 2 - (normal ** 2 - r ** 2)
+
+    if (nabla >= 0) {
+      const d = -u.dot(o.clone().sub(c))
+
+      if (d < 0) {
+        // no intersection (obstacle is behind the starting point)
+        continue
+      }
+
+      if (d > o.distanceTo(to)) {
+        // no intersection (obstacle is inline with the current position but not in range)
+        continue
+      }
+
+      console.log('Intersection with', obstacle.name)
+      const midpoint = new Vector3().addVectors(o, u.clone().multiplyScalar(d))
+
+      const distanceFromCenter = midpoint.distanceTo(obstacle)
+      const direction = new Vector3().subVectors(midpoint, obstacle).normalize()
+
+      // half-radius padding to avoid accidental voxel collision or zone transfer
+      // cap at 50km to avoid excessive padding
+      const bypassPadding = Math.min(r * 0.5, 50000)
+      const turnPoint = new Vector3().addVectors(
+        midpoint,
+        direction.multiplyScalar(r - distanceFromCenter + bypassPadding),
+      )
+
+      const nextPoint = new GPSPoint(
+        turnPoint.x,
+        turnPoint.y,
+        turnPoint.z,
+        'poi',
+        `Obstacle (${obstacle.name})`,
+        obstacle.color,
+      )
+
+      console.log(
+        `Turning to avoid ${obstacle.name} (${from.name} -> ${to.name})`,
+      )
+      yield* traverseRoutingPath(from, nextPoint, world, mode)
+
+      console.log(`Continuing route (${nextPoint.name} -> ${to.name})`)
+      yield* traverseRoutingPath(nextPoint, to, world, mode)
+
+      return // end the loop and exit the function
+    }
+  }
+
+  console.log('No obstacles found, direct route')
+
+  // Offset by 1km so we don't slam directly into the target
+  const endPosition = new Vector3(to.x, to.y, to.z).add(
+    unitVector.clone().multiplyScalar(((to.radius ?? 0) + 1000) * -1),
+  )
+  yield new GPSPoint(
+    endPosition.x,
+    endPosition.y,
+    endPosition.z,
+    'poi',
+    to.name,
+    to.color,
+  )
 }
 
-// export const computeRoute = (
-//   from: GPSPoint,
-//   to: GPSPoint,
-//   world: GPSList,
-//   optimize: 'time' | 'distance',
-// ): GPSRoute => {
-//   const route: GPSRoute = [from]
+export function* traverseRoute(
+  from: GPSPoint,
+  to: GPSPoint,
+  world: GPSList,
+  allowLithobraking: boolean = true,
+): Generator<GPSPoint, void> {
+  yield new GPSPoint(from.x, from.y, from.z, 'poi', from.name, from.color)
+  yield* traverseRoutingPath(
+    from,
+    to,
+    world,
+    allowLithobraking ? 0 : RoutingModes.No_Lithoturns,
+  )
+}
 
-//   return route
-// }
+export const computeShortestRoute = (
+  from: GPSPoint,
+  to: GPSPoint,
+  world: GPSList,
+  allowLithobraking: boolean = true,
+): GPSRoute => {
+  return [...traverseRoute(from, to, world, allowLithobraking)]
+}
