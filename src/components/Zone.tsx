@@ -32,7 +32,7 @@ export function Zone(props: {
     // const cameraDistance = state.controls?.object?.position.distanceTo(position)
     state.camera.updateProjectionMatrix()
     const controls = state.controls as OrbitControls
-    const cameraDistance = controls.getDistance()
+    const cameraDistance = controls?.getDistance()
     // console.log(cameraDistance)
     if (
       cameraDistance &&
@@ -45,7 +45,7 @@ export function Zone(props: {
     }
   })
 
-  const [, set] = useControls('Selected Point of Interest', () => ({
+  const [, set] = useControls('Focused Point of Interest', () => ({
     Information: {
       value: '',
       editable: false,
@@ -112,7 +112,7 @@ export function Zone(props: {
             origin: position,
           }}
         >
-          <Sphere args={[radius]}>
+          <Sphere args={[radius, 64, 128]}>
             <meshPhongMaterial
               color={color}
               transparent={false}

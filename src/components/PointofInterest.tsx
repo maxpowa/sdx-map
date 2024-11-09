@@ -35,7 +35,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
     [radius, textScale],
   )
 
-  const [, set] = useControls('Selected Point of Interest', () => ({
+  const [, set] = useControls('Focused Point of Interest', () => ({
     Information: {
       value: '',
       editable: false,
@@ -108,7 +108,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
           fontSize={labelFontSize}
           anchorX={isBody ? 'left' : 'right'}
           anchorY={'bottom'}
-          outlineWidth={hovered ? 0.5 * textScale : 0}
+          outlineWidth={hovered ? 0.25 * textScale : 0}
           outlineBlur={hovered ? 0.5 * textScale : 0}
           outlineColor={poi.parent?.color ?? '#FFFFFF'}
         >

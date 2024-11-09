@@ -245,8 +245,8 @@ export class GPSList {
     recursive: boolean = false,
   ): GPSPointOfInterest[] {
     return this.list.flatMap((poi) => {
-      if (GPSZone.isZone(poi) && recursive) {
-        return poi.children.pois(withTurns)
+      if (GPSZone.isZone(poi)) {
+        return recursive ? poi.children.pois(withTurns, recursive) : []
       }
       if (withTurns && poi.parent && !GPSZone.isHighSpeed(poi.parent)) {
         const turnVec = poi.parent?.vectorToEdge(poi)
@@ -284,6 +284,12 @@ export class GPSList {
       }
       return []
     }) as GPSZone[]
+  }
+
+  sort(
+    compareFn?: (a: GPSPointOfInterest, b: GPSPointOfInterest) => number,
+  ): GPSPointOfInterest[] {
+    return this.list.sort(compareFn)
   }
 
   map<T>(callback: (point: GPSPointOfInterest, index: number) => T): T[] {
@@ -359,6 +365,129 @@ export class GPSList {
 }
 
 export type GPSRoute = GPSPoint[]
+
+// This is a rough estimate of the distance required to reach max speed
+export const distanceToMaxSpeed = (
+  accel: number,
+  maxSpeed: number,
+  initialSpeed = 0,
+): number => {
+  return maxSpeed ** 2 - initialSpeed ** 2 / (2 * accel)
+}
+
+export function* route(from: GPSPoint, to: GPSPoint, world: GPSList) {
+  yield new GPSPoint(
+    from.x,
+    from.y,
+    from.z,
+    'poi',
+    from.name + ' (Start)',
+    from.color,
+  )
+  yield* routeRecursive(from, to, world)
+  yield new GPSPoint(to.x, to.y, to.z, 'poi', to.name + ' (End)', to.color)
+}
+
+export function* routeRecursive(
+  from: GPSPoint,
+  to: GPSPoint,
+  world: GPSList,
+): Generator<GPSPoint> {
+  let potentialObstacles = world
+  if (from.parent === to.parent && from.parent) {
+    potentialObstacles = from.parent.children
+  } else if (from.parent && !GPSZone.isHighSpeed(from.parent)) {
+    // With user GPS points, we will need to check for body collisions here, since you may have a GPS point between the planet and a moon
+    const vec = from.parent.vectorToEdge(from)
+    const newFromPoint = new GPSPoint(
+      vec.x,
+      vec.y,
+      vec.z,
+      'poi',
+      from.name + ' (Turn)',
+      from.color,
+    )
+    yield newFromPoint
+    yield* routeRecursive(newFromPoint, to, world)
+  } else {
+    const unitVector = new Vector3(from.x, from.y, from.z)
+      .sub(new Vector3(to.x, to.y, to.z))
+      .normalize()
+
+    const sortedObstacles = potentialObstacles.sort(
+      (a, b) => a.distanceTo(from) - b.distanceTo(from),
+    )
+
+    for (const obstacle of sortedObstacles) {
+      if (obstacle === from || obstacle === to || obstacle === from.parent)
+        continue
+      if (GPSZone.isZone(obstacle) && GPSZone.isHighSpeed(obstacle)) continue
+      if (obstacle === to.parent) {
+        const vec = to.parent.vectorToEdge(to)
+        const newFromPoint = new GPSPoint(
+          vec.x,
+          vec.y,
+          vec.z,
+          'poi',
+          from.name + ' (Turn)',
+          from.color,
+        )
+        yield newFromPoint
+        break
+      }
+
+      // line-sphere intersection formula
+      // adapted from the formula provided on https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+      const o = new Vector3(from.x, from.y, from.z)
+      const c = new Vector3(obstacle.x, obstacle.y, obstacle.z)
+      const r = obstacle.radius || 10
+      const u = unitVector.clone()
+      const distance = o.distanceTo(c)
+      const nabla = u.dot(o.clone().sub(c)) ** 2 - (distance ** 2 - r ** 2)
+
+      if (nabla < 0) {
+        // no intersection
+      } else {
+        // tangent or two intersections
+        const d = -u.dot(o.clone().sub(c))
+        const midpoint = o.clone().add(u.clone().multiplyScalar(d))
+
+        const distanceFromCenter = midpoint.distanceTo(obstacle)
+        const turnPoint = new Vector3(midpoint.x, midpoint.y, midpoint.z)
+        const vec = new Vector3(
+          midpoint.x - obstacle.x,
+          midpoint.y - obstacle.y,
+          midpoint.z - obstacle.z,
+        )
+
+        // half-radius padding to avoid accidental voxel collision or zone transfer
+        // cap at 50km to avoid excessive padding
+        const bypassPadding = Math.min(r * 0.5, 50000)
+        turnPoint.add(
+          vec
+            .normalize()
+            .multiplyScalar(r - distanceFromCenter + bypassPadding),
+        )
+
+        const nextPoint = new GPSPoint(
+          turnPoint.x,
+          turnPoint.y,
+          turnPoint.z,
+          'poi',
+          obstacle.name + ' (Route)',
+          obstacle.color,
+        )
+
+        yield nextPoint
+        // recursive call
+        yield* routeRecursive(nextPoint, to, world)
+      }
+    }
+
+    // if we didn't find any obstacles, we can go straight to the end
+    yield new GPSPoint(to.x, to.y, to.z, 'poi', to.name + ' (End)', to.color)
+  }
+}
 
 export const computeShortestRoute = (
   from: GPSPoint,

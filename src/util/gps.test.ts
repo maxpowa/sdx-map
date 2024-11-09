@@ -5,6 +5,7 @@ import {
   GPSBody,
   GPSZone,
   computeShortestRoute,
+  route,
 } from './gps'
 import { Vector3 } from 'three'
 
@@ -190,6 +191,39 @@ describe('Route Planner', () => {
         x: 650000,
         y: -650000,
         z: -250000,
+      },
+    ])
+  })
+
+  it('should calculate the optimal route between two points with a zone', () => {
+    const world = GPSList.fromString(`
+      GPS:Deimos:900000:-800000:0:#FF40EC34:
+      GPS:Ariel:-4110989.31:3110909.45:-359192.17:#FF40EC34:
+      GPS:Mars:750000:-750000:-80000:#FF40EC34:
+      GPS:Mars - (R:400km):750000:-750000:-80000:#FFFFFF00:DX3:
+      GPS:Vesta - (R:300km):-1400000:1000000:-50000:#FFFFFF00:DX2:
+      GPS:Earth - (R:400km):-800000:100000:80000:#FFFFFF00:DX4:
+    `)
+    const deimos = world.pois(false, true)[0]
+    const ariel = world.pois(false, true)[2]
+    const result = route(deimos, ariel, world)
+    expect(result).toEqual([
+      {
+        class: 'poi',
+        color: '#FF40EC34',
+        name: 'Deimos (Start)',
+        x: 900000,
+        y: -800000,
+        z: 0,
+      },
+      {
+        class: 'zone',
+        color: '#FFFFFF00',
+        name: 'Mars - (R:400km) (End)',
+        radius: 400000,
+        x: 750000,
+        y: -750000,
+        z: -80000,
       },
     ])
   })
