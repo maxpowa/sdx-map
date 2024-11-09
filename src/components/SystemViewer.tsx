@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo } from 'react'
-import { useThree } from '@react-three/fiber'
-import { OrbitControls } from 'three-stdlib'
 import { Line, Points } from '@react-three/drei'
-import { button, useControls } from 'leva'
-import { DraconisExpanseSystem } from '../data/sdx'
+import { type OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { button, folder, useControls } from 'leva'
 import { ScaleProvider, useTextScale } from '../hooks/scale'
 import { renderSystemChildren } from '../util/renderChildren'
 import { Grid } from './Grid'
 import { Color } from 'three'
+import { DraconisExpanseSystem } from '../data/sdx'
+import { useThree } from '@react-three/fiber'
+import { useMemo, useCallback, useEffect } from 'react'
 
 export function AxisLine(props: { axis: 'x' | 'y' | 'z' }) {
   const { axis } = props
@@ -48,18 +48,15 @@ export function AxisLine(props: { axis: 'x' | 'y' | 'z' }) {
   )
 }
 
-export function StarSystem(props: {
-  system: keyof typeof DraconisExpanseSystem
-  coordScale: number
-  textScale: number
-}) {
-  const { system, coordScale, textScale } = props
+function useSystemData(system: keyof typeof DraconisExpanseSystem) {
+  const controls = useThree((state) => state.controls) as OrbitControlsImpl
 
-  const { controls } = useThree() as {
-    controls: OrbitControls
-  }
+  const systemData = useMemo(() => {
+    const data = DraconisExpanseSystem[system].clone()
+    return data
+  }, [system])
 
-  const [, set] = useControls('Selected Point of Interest', () => ({
+  const [, set] = useControls('Focused Point of Interest', () => ({
     Information: {
       value: '',
       editable: false,
@@ -92,7 +89,7 @@ export function StarSystem(props: {
     set({ Information: 'N/A', GPS: '' })
   }, [controls, set, system])
 
-  useEffect(resetCamera, [system, resetCamera])
+  useEffect(resetCamera, [system, resetCamera, controls])
 
   useControls(
     {
@@ -101,59 +98,41 @@ export function StarSystem(props: {
     [controls, system],
   )
 
-  // const { userGpsList } = useControls(
-  //   `User GPS (${system})`,
-  //   {
-  //     userGpsList: {
-  //       value: '',
-  //       label: 'GPS List',
-  //       rows: true,
-  //     },
-  //   },
-  //   [system],
-  // )
+  return systemData
+}
 
-  const systemData = useMemo(() => {
-    // const [systemData] = useMemo(() => {
-    const data = DraconisExpanseSystem[system].clone()
-    // data.addFromString(userGpsList ?? '')
-    // const poiRecord = data
-    //   .pois(true, true)
-    //   .sort((a, b) => a.name.localeCompare(b.name))
-    //   .filter((poi) => poi.class !== 'turn')
-    //   .reduce(
-    //     (acc: Record<string, GPSPointOfInterest>, poi: GPSPointOfInterest) => {
-    //       acc[poi.name] = poi
-    //       return acc
-    //     },
-    //     {},
-    //   )
-    // const sortedKeys = Object.keys(poiRecord).sort()
-    return data
-  }, [system])
-  // }, [system, userGpsList])
+export function StarSystem(props: {
+  system: keyof typeof DraconisExpanseSystem
+  coordScale: number
+  textScale: number
+}) {
+  const { system, coordScale, textScale } = props
 
-  const { showGrid, showHighSpeed, axes, turns } = useControls(
-    'View Settings',
-    {
-      turns: {
-        value: true,
-        label: 'Turns',
+  const systemData = useSystemData(system)
+
+  const { showGrid, showHighSpeed, axes, turns } = useControls({
+    'View Settings': folder(
+      {
+        turns: {
+          value: true,
+          label: 'Turns',
+        },
+        showHighSpeed: {
+          value: true,
+          label: 'High Speed Zones',
+        },
+        showGrid: {
+          value: false,
+          label: 'Gridlines',
+        },
+        axes: {
+          value: false,
+          label: 'Axes',
+        },
       },
-      showHighSpeed: {
-        value: true,
-        label: 'High Speed Zones',
-      },
-      showGrid: {
-        value: false,
-        label: 'Gridlines',
-      },
-      axes: {
-        value: false,
-        label: 'Axes',
-      },
-    },
-  )
+      { collapsed: true },
+    ),
+  })
 
   return (
     <>

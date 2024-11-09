@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import { Sphere, useTexture } from '@react-three/drei'
 
-export const Earth = (props: { radius: number }) => {
+type BodyProps = { radius: number; name: string }
+
+export const Earth = (props: BodyProps) => {
   const { radius } = props
 
   const [dayTexture, nightTexture] = useTexture([
@@ -23,7 +25,7 @@ export const Earth = (props: { radius: number }) => {
   )
 }
 
-export const Planetoid = (props: { radius: number }) => {
+export const Planetoid = (props: BodyProps) => {
   const { radius } = props
 
   const [texture] = useTexture(['./planets/rocky.jpg'])
@@ -50,7 +52,7 @@ const supportedPlanets = [
   'ilus',
   'luna',
 ]
-export const Planet = (props: { radius: number; name: string }) => {
+export const Planet = (props: BodyProps) => {
   const { radius, name } = props
   const [texture] = useTexture([`./planets/${name}.jpg`])
 
@@ -61,14 +63,19 @@ export const Planet = (props: { radius: number; name: string }) => {
   )
 }
 
-export const Body = (props: { radius: number; name: string }) => {
-  const { name } = props
+export const Body = (props: BodyProps) => {
+  const { name, radius } = props
 
+  let Component = Planetoid
   if (name === 'earth') {
-    return <Earth {...props} />
+    Component = Earth
   } else if (supportedPlanets.includes(name)) {
-    return <Planet {...props} />
+    Component = Planet
   }
 
-  return <Planetoid {...props} />
+  return (
+    <>
+      <Component {...props} radius={radius * 0.7} />
+    </>
+  )
 }
