@@ -5,6 +5,7 @@ import { StarSystem } from './SystemViewer'
 import { useEffect, useMemo, useState } from 'react'
 import { button, folder, useControls } from 'leva'
 import { computeShortestRoute, GPSPoint, GPSRoute } from '../util/gps'
+import { Color } from 'three'
 
 const blurbStyle = {
   padding: 'var(--leva-space-xs) var(--leva-space-sm)',
@@ -42,7 +43,7 @@ const useRoutePlanner = (system: keyof typeof DraconisExpanseSystem) => {
           options: pois,
         },
         allowLithoturns: {
-          value: false,
+          value: true,
           label: 'Allow Lithoturns (slam into slowzones instead of braking)',
         },
       }),
@@ -70,6 +71,14 @@ const useRoutePlanner = (system: keyof typeof DraconisExpanseSystem) => {
         )
         console.log(route)
         setRoute(route)
+        alert(
+          route
+            .map(
+              (each, index) =>
+                `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
+            )
+            .join('\n'),
+        )
       }),
     },
     [system, from, to, allowLithoturns, route],
@@ -117,7 +126,16 @@ export function UserInterface(props: {
           />
         )}
         <group scale={[coordScale, coordScale, coordScale]}>
-          {route && route.length > 0 && <Line points={route} color="red" />}
+          {route && route.length > 0 && (
+            <Line
+              lineWidth={2}
+              points={route}
+              vertexColors={route.map(
+                (each) =>
+                  new Color(each.category === 'slowzone' ? 'red' : 'green'),
+              )}
+            />
+          )}
         </group>
       </Canvas>
       <div

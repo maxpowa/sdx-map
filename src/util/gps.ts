@@ -420,6 +420,7 @@ export function* traverseRoutingPath(
       'poi',
       from.name,
       from.color,
+      fromZone && !GPSZone.isHighSpeed(fromZone) ? 'slowzone' : 'highspeed',
     )
 
     // Vector to TURN_DISTANCE outside of zone
@@ -442,6 +443,7 @@ export function* traverseRoutingPath(
       'poi',
       `Turn (${from.name})`,
       from.color,
+      fromZone && !GPSZone.isHighSpeed(fromZone) ? 'slowzone' : 'highspeed',
     )
 
     console.log('Routing out of zone', fromZone.name)
@@ -489,6 +491,10 @@ export function* traverseRoutingPath(
     })
     .sort((a, b) => a.distanceTo(from) - b.distanceTo(from))
 
+  // Lithoturning only applies when entering into a zone from outside, in other cases it is not required
+  const allowsLithoturning =
+    (mode & RoutingModes.No_Lithoturns) !== RoutingModes.No_Lithoturns
+
   for (const obstacle of sortedObstacles) {
     if (
       (mode & RoutingModes.NavigatingAroundZoneToEntry) !==
@@ -498,26 +504,23 @@ export function* traverseRoutingPath(
       obstacle.doesCapture(to) &&
       !obstacle.doesCapture(from)
     ) {
-      // Lithobraking only applies when entering into a zone from outside, in other cases it is not required
-
-      const allowsLithobraking =
-        (mode & RoutingModes.No_Lithoturns) !== RoutingModes.No_Lithoturns
       // vector exactly to the optimal point on the edge of the zone (utilize zone speed limits to brake)
       // 1km to the inside of the zone should guarantee we actally end up inside the zone
       // This should give NavOS a chance to reorient before reaching the waypoint
       const vec = obstacle.vectorToEdge(
         to,
-        allowsLithobraking ? -TURN_DISTANCE : TURN_DISTANCE,
+        allowsLithoturning ? -TURN_DISTANCE : TURN_DISTANCE,
       )
       const newFromPoint = new GPSPoint(
         vec.x,
         vec.y,
         vec.z,
         'poi',
-        allowsLithobraking
+        allowsLithoturning
           ? `Lithoturn (${obstacle.name})`
           : `Turn (${obstacle.name})`,
         from.color,
+        'slowzone', // it's always slowzone in this scenario
       )
 
       console.log(newFromPoint.name)
@@ -574,6 +577,14 @@ export function* traverseRoutingPath(
         direction.multiplyScalar(r - distanceFromCenter + bypassPadding),
       )
 
+      if (
+        allowsLithoturning &&
+        from.distanceTo(to) < from.distanceTo(turnPoint)
+      ) {
+        // we were close enough to lithoturning anyways, so just continue
+        continue
+      }
+
       const nextPoint = new GPSPoint(
         turnPoint.x,
         turnPoint.y,
@@ -581,7 +592,12 @@ export function* traverseRoutingPath(
         'poi',
         `Obstacle (${obstacle.name})`,
         obstacle.color,
+        'highspeed',
       )
+      const nextZone = zones.find((zone) => zone.doesCapture(nextPoint))
+      if (nextZone && !GPSZone.isHighSpeed(nextZone)) {
+        nextPoint.category = 'slowzone'
+      }
 
       console.log(
         `Turning to avoid ${obstacle.name} (${from.name} -> ${to.name})`,
@@ -608,6 +624,7 @@ export function* traverseRoutingPath(
     'poi',
     to.name,
     to.color,
+    toZone && !GPSZone.isHighSpeed(toZone) ? 'slowzone' : 'highspeed',
   )
 }
 
@@ -617,7 +634,16 @@ export function* traverseRoute(
   world: GPSList,
   allowLithobraking: boolean = true,
 ): Generator<GPSPoint, void> {
-  yield new GPSPoint(from.x, from.y, from.z, 'poi', from.name, from.color)
+  const isStartInSlowZone = from.parent && !GPSZone.isHighSpeed(from.parent)
+  yield new GPSPoint(
+    from.x,
+    from.y,
+    from.z,
+    'poi',
+    from.name,
+    from.color,
+    isStartInSlowZone ? 'slowzone' : 'highspeed',
+  )
   yield* traverseRoutingPath(
     from,
     to,
