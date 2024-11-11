@@ -3,9 +3,9 @@
 exports[`Route Planner > should calculate a complex route 1`] = `
 [
   GPSPoint {
-    "category": undefined,
+    "category": "slowzone",
     "class": "poi",
-    "color": "#FF40EC34",
+    "color": "#40EC34",
     "name": "Deimos",
     "parent": undefined,
     "radius": undefined,
@@ -14,9 +14,9 @@ exports[`Route Planner > should calculate a complex route 1`] = `
     "z": 0,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "highspeed",
     "class": "poi",
-    "color": "#FF40EC34",
+    "color": "#40EC34",
     "name": "Turn (Deimos)",
     "parent": undefined,
     "radius": undefined,
@@ -25,7 +25,7 @@ exports[`Route Planner > should calculate a complex route 1`] = `
     "z": 101263.64653217181,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "highspeed",
     "class": "poi",
     "color": "#FF0000",
     "name": "Obstacle (Mars - (R:400km))",
@@ -36,7 +36,7 @@ exports[`Route Planner > should calculate a complex route 1`] = `
     "z": 230174.86047575067,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "highspeed",
     "class": "poi",
     "color": "#FF0000",
     "name": "Obstacle (Mars - (R:400km))",
@@ -47,7 +47,7 @@ exports[`Route Planner > should calculate a complex route 1`] = `
     "z": 280510.32457491197,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "highspeed",
     "class": "poi",
     "color": "#FF8C00",
     "name": "Obstacle (Vesta - (R:300km))",
@@ -58,7 +58,7 @@ exports[`Route Planner > should calculate a complex route 1`] = `
     "z": 78797.65686730255,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "highspeed",
     "class": "poi",
     "color": "#008000",
     "name": "Obstacle (Uranus - (R:500km))",
@@ -69,7 +69,7 @@ exports[`Route Planner > should calculate a complex route 1`] = `
     "z": -577576.5005835672,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "slowzone",
     "class": "poi",
     "color": "#FF8C00",
     "name": "Lithoturn (Uranus - (R:500km))",
@@ -80,9 +80,9 @@ exports[`Route Planner > should calculate a complex route 1`] = `
     "z": -553345.2344072373,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "slowzone",
     "class": "poi",
-    "color": "#FF40EC34",
+    "color": "#40EC34",
     "name": "Ariel",
     "parent": undefined,
     "radius": undefined,
@@ -96,9 +96,9 @@ exports[`Route Planner > should calculate a complex route 1`] = `
 exports[`Route Planner > should calculate the optimal route between two points with an obstacle 1`] = `
 [
   GPSPoint {
-    "category": undefined,
+    "category": "slowzone",
     "class": "poi",
-    "color": "#FF40EC34",
+    "color": "#40EC34",
     "name": "Deimos",
     "parent": undefined,
     "radius": undefined,
@@ -107,9 +107,9 @@ exports[`Route Planner > should calculate the optimal route between two points w
     "z": 0,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "slowzone",
     "class": "poi",
-    "color": "#FF40EC34",
+    "color": "#40EC34",
     "name": "Obstacle (Mars)",
     "parent": undefined,
     "radius": undefined,
@@ -118,9 +118,9 @@ exports[`Route Planner > should calculate the optimal route between two points w
     "z": -130962.25209164093,
   },
   GPSPoint {
-    "category": undefined,
+    "category": "slowzone",
     "class": "poi",
-    "color": "#FF40EC34",
+    "color": "#40EC34",
     "name": "Phobos",
     "parent": undefined,
     "radius": undefined,

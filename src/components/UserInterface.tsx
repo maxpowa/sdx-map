@@ -10,8 +10,8 @@ import { Color } from 'three'
 const blurbStyle = {
   padding: 'var(--leva-space-xs) var(--leva-space-sm)',
   borderRadius: 'var(--leva-radii-sm)',
-  color: 'var(--leva-colors-highlight3)',
-  backgroundColor: 'var(--leva-colors-elevation1)',
+  color: 'var(--leva-colors-highlight2)',
+  backgroundColor: 'var(--leva-colors-elevation2)',
   fontFamily: 'var(--leva-fonts-mono)',
   fontSize: 'var(--leva-fontSizes-root)',
 }
@@ -71,13 +71,17 @@ const useRoutePlanner = (system: keyof typeof DraconisExpanseSystem) => {
         )
         console.log(route)
         setRoute(route)
+        // TODO: Move to proper inline modal or something instead of alert
         alert(
-          route
-            .map(
-              (each, index) =>
-                `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
-            )
-            .join('\n'),
+          'The route has been calculated and is displayed on the map. A NavOS journey has been printed below for your convenience.\n\n' +
+            '[Journey Start]\n' +
+            route
+              .map(
+                (each, index) =>
+                  `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
+              )
+              .join('\n') +
+            '\n[Journey End]',
         )
       }),
     },
@@ -147,7 +151,9 @@ export function UserInterface(props: {
           lineHeight: '1.3em',
         }}
       >
-        <span style={blurbStyle}>* BODIES MAY LOOK DIFFERENT IN-GAME</span>
+        <span style={blurbStyle}>
+          * Bodies may differ from in-game appearance
+        </span>
       </div>
       <div
         style={{
@@ -158,8 +164,8 @@ export function UserInterface(props: {
           ...blurbStyle,
         }}
       >
-        SUBMIT MAP BUGS{' '}
-        <a href="https://github.com/maxpowa/sdx-map/issues">HERE</a>
+        Submit map errors{' '}
+        <a href="https://github.com/maxpowa/sdx-map/issues">here</a>
       </div>
       {/* <div
         style={{
