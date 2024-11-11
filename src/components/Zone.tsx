@@ -109,7 +109,7 @@ export function Zone(props: {
                 onDoubleClick,
               })}
         >
-          <mesh>
+          <instancedMesh>
             <Sphere args={[radius, 64, 128]}>
               <meshPhongMaterial
                 color={color}
@@ -139,7 +139,7 @@ export function Zone(props: {
             >
               {zone.name}
             </Text>
-          </mesh>
+          </instancedMesh>
         </Billboard>
       )}
       {renderChildren(children)}

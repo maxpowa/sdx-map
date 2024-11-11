@@ -118,6 +118,8 @@ export function UserInterface(props: {
           up: [0, 0, 1],
         }}
         frameloop="demand"
+        performance={{ min: 0.5 }}
+        dpr={[0.25, 1]}
       >
         <OrbitControls makeDefault />
         <directionalLight position={[0, 4000, 5000]} intensity={1.8} />
