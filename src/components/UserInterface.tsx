@@ -2,10 +2,8 @@ import { Canvas } from '@react-three/fiber'
 import { DraconisExpanseSystem } from '../data/sdx'
 import { OrbitControls, Line } from '@react-three/drei'
 import { StarSystem } from './SystemViewer'
-import { useEffect, useMemo, useState } from 'react'
-import { button, folder, useControls } from 'leva'
-import { computeShortestRoute, GPSPoint, GPSRoute } from '../util/gps'
 import { Color } from 'three'
+import { useRoutePlanner } from '../hooks/useRoutePlanner'
 
 const blurbStyle = {
   padding: 'var(--leva-space-xs) var(--leva-space-sm)',
@@ -14,81 +12,6 @@ const blurbStyle = {
   backgroundColor: 'var(--leva-colors-elevation2)',
   fontFamily: 'var(--leva-fonts-mono)',
   fontSize: 'var(--leva-fontSizes-root)',
-}
-
-const useRoutePlanner = (system: keyof typeof DraconisExpanseSystem) => {
-  const [route, setRoute] = useState<GPSRoute>([])
-  const pois = useMemo(
-    () =>
-      DraconisExpanseSystem[system]
-        .pois(true, true)
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .reduce(
-          (acc, poi) => {
-            acc[poi.name] = poi
-            return acc
-          },
-          {} as Record<string, GPSPoint>,
-        ),
-    [system],
-  )
-
-  const [{ Start: from, End: to, allowLithoturns }, set] = useControls(
-    () => ({
-      'Route Planner': folder({
-        Start: {
-          options: pois,
-        },
-        End: {
-          options: pois,
-        },
-        allowLithoturns: {
-          value: true,
-          label: 'Allow Lithoturns (slam into slowzones instead of braking)',
-        },
-      }),
-    }),
-    [pois, setRoute],
-  )
-
-  useEffect(() => {
-    set({
-      Start: pois['MCRN Free Rebel Fleet'] ?? pois[Object.keys(pois)[0]],
-      End: pois['Pallas Station'] ?? pois[Object.keys(pois)[1]],
-    })
-    setRoute([])
-  }, [pois, set, system])
-
-  useControls(
-    'Route Planner',
-    {
-      Route: button(() => {
-        const route = computeShortestRoute(
-          from,
-          to,
-          DraconisExpanseSystem[system],
-          allowLithoturns,
-        )
-        console.log(route)
-        setRoute(route)
-        // TODO: Move to proper inline modal or something instead of alert
-        alert(
-          'The route has been calculated and is displayed on the map. A NavOS journey has been printed below for your convenience.\n\n' +
-            '[Journey Start]\n' +
-            route
-              .map(
-                (each, index) =>
-                  `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
-              )
-              .join('\n') +
-            '\n[Journey End]',
-        )
-      }),
-    },
-    [system, from, to, allowLithoturns, route],
-  )
-
-  return route
 }
 
 export function UserInterface(props: {

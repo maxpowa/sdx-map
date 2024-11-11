@@ -40,8 +40,7 @@ export function Zone(props: {
     // console.log(cameraDistance)
     if (
       cameraDistance &&
-      (cameraDistance < scaledRadius * 2.5 ||
-        cameraDistance > scaledRadius * 20)
+      (cameraDistance < scaledRadius * 3 || cameraDistance > scaledRadius * 20)
     ) {
       setShowText(false)
     } else {
@@ -84,7 +83,7 @@ export function Zone(props: {
         cameraPosition.z,
       )
       set({
-        Information: `${zone.name} (Zone ${zone.category})`,
+        Information: `${zone.name} (${zone.category})`,
         GPS: zone.toString(),
       })
       event.stopPropagation()

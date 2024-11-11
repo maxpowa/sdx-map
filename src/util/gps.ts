@@ -234,6 +234,14 @@ export class GPSList {
     this.arrange()
   }
 
+  // Add multiple GPSLists together
+  add(...args: GPSList[]): void {
+    for (const arg of args) {
+      this.list.push(...arg.list)
+    }
+    this.arrange()
+  }
+
   push(...args: GPSPointOfInterest[]): void {
     this.list.push(...args)
     this.arrange()
@@ -410,6 +418,7 @@ export function* traverseRoutingPath(
   if (
     fromZone !== toZone &&
     fromZone &&
+    !GPSZone.isHighSpeed(fromZone) &&
     (mode & RoutingModes.DeterminedStartDirection) !==
       RoutingModes.DeterminedStartDirection
   ) {

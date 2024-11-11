@@ -16,11 +16,15 @@ export function POI(props: { poi: GPSPointOfInterest }) {
 
   const scale = useScale()
   const textScale = useTextScale()
-  const radius = poi.radius ?? 5 * textScale
-
-  const [hovered, hover] = useState(false)
 
   const isBody = GPSBody.isBody(poi)
+  const radius = isBody ? poi.radius : 5 * textScale
+
+  const labelRadius = isBody
+    ? Math.max(poi.radius * (scale * 5), textScale * (scale * 1000))
+    : textScale * (scale * 1000)
+
+  const [hovered, hover] = useState(false)
 
   const labelPosition = useMemo(() => {
     if (GPSBody.isBody(poi)) {
@@ -71,7 +75,10 @@ export function POI(props: { poi: GPSPointOfInterest }) {
         cameraPosition.y,
         cameraPosition.z,
       )
-      set({ Information: name, GPS: poi.toString() })
+      set({
+        Information: `${name}${poi.category ? ` (${poi.category})` : ''}`,
+        GPS: poi.toString(),
+      })
       event.stopPropagation()
     },
     [controls, poi, scale, isBody, radius, set, name],
@@ -112,7 +119,7 @@ export function POI(props: { poi: GPSPointOfInterest }) {
           </Sphere>
         )}
       </instancedMesh>
-      <Detailed distances={[0, hovered ? textScale * 10 : textScale]}>
+      <Detailed distances={[0, hovered ? 20 * labelRadius : labelRadius]}>
         <instancedMesh>
           <Billboard>
             <Text
