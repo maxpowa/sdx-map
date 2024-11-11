@@ -32,11 +32,7 @@ export const Planetoid = (props: BodyProps) => {
 
   return (
     <Sphere args={[radius, 64, 128]} rotation={[Math.PI / 2, 0, 0]}>
-      <meshPhongMaterial
-        map={texture}
-        displacementMap={texture}
-        displacementScale={1000}
-      />
+      <meshPhongMaterial map={texture} />
     </Sphere>
   )
 }

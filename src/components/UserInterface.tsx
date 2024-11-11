@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { DraconisExpanseSystem } from '../data/sdx'
-import { Stars, OrbitControls, Line } from '@react-three/drei'
+import { OrbitControls, Line } from '@react-three/drei'
 import { StarSystem } from './SystemViewer'
 import { useEffect, useMemo, useState } from 'react'
 import { button, folder, useControls } from 'leva'
@@ -124,7 +124,6 @@ export function UserInterface(props: {
         <OrbitControls makeDefault />
         <directionalLight position={[0, 4000, 5000]} intensity={1.8} />
         <ambientLight intensity={Math.PI / 4} />
-        <Stars radius={100000000 * coordScale} fade />
         {system && (
           <StarSystem
             system={system}
