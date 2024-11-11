@@ -117,6 +117,7 @@ export function UserInterface(props: {
           // rotation: [0, 1, 1],
           up: [0, 0, 1],
         }}
+        frameloop="demand"
       >
         <OrbitControls makeDefault />
         <directionalLight position={[0, 4000, 5000]} intensity={1.8} />
