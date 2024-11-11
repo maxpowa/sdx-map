@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Billboard, Sphere, Line, Text } from '@react-three/drei'
+import { Billboard, Sphere, Line, Text, Detailed } from '@react-three/drei'
 import { useThree, ThreeEvent } from '@react-three/fiber'
 import { useControls } from 'leva'
 import { useMemo, useCallback, useState } from 'react'
@@ -89,81 +89,90 @@ export function POI(props: { poi: GPSPointOfInterest }) {
         hover(false)
       }}
     >
-      {isBody ? (
-        <>
-          <Sphere args={[radius, 64, 128]}>
+      <instancedMesh>
+        {isBody ? (
+          <>
+            <Sphere args={[radius, 64, 128]}>
+              <MeshFresnelMaterial
+                fresnelColor={color}
+                intensity={1}
+                baseAlpha={hovered ? 0.5 : 0.15}
+                amount={hovered ? 2 : 5}
+              />
+            </Sphere>
+            <Body name={name.toLocaleLowerCase()} radius={poi.radius} />
+          </>
+        ) : (
+          <Sphere args={[radius]}>
             <MeshFresnelMaterial
               fresnelColor={color}
-              intensity={1}
-              baseAlpha={hovered ? 0.5 : 0.15}
-              amount={hovered ? 2 : 5}
+              baseColor={poi.parent?.color ?? color}
+              amount={hovered ? 0.5 : 1}
             />
           </Sphere>
-          <Body name={name.toLocaleLowerCase()} radius={poi.radius} />{' '}
-        </>
-      ) : (
-        <Sphere args={[radius]}>
-          <MeshFresnelMaterial
-            fresnelColor={color}
-            baseColor={poi.parent?.color ?? color}
-            amount={hovered ? 0.5 : 1}
-          />
-        </Sphere>
-      )}
-      <Billboard>
-        <Text
-          font={'./RobotoMono-Regular.ttf'}
-          position={labelPosition
-            .clone()
-            .add(
-              new THREE.Vector3(
-                (isBody ? 4 : -2) * textScale,
-                1 * textScale,
-                0,
-              ),
-            )}
-          fontSize={labelFontSize}
-          anchorX={isBody ? 'left' : 'right'}
-          anchorY={'bottom'}
-          outlineWidth={hovered ? 0.25 * textScale : 0}
-          outlineBlur={hovered ? 0.5 * textScale : 0}
-          outlineColor={poi.parent?.color ?? '#FFFFFF'}
-        >
-          {name}
-        </Text>
-        <Line
-          lineWidth={0.9}
-          points={[
-            new THREE.Vector3(0, 0, 0)
-              .add(labelPosition)
-              .normalize()
-              .multiplyScalar(radius),
-            labelPosition,
-          ]}
-        />
-        <Line
-          lineWidth={0.9}
-          points={[
-            labelPosition.clone().add(new THREE.Vector3(0, 5 * textScale, 0)),
-            labelPosition,
-          ]}
-        />
-        <Line
-          lineWidth={0.9}
-          points={[
-            labelPosition
-              .clone()
-              .add(
-                new THREE.Vector3(
-                  (isBody ? 2 : -2) * name.length * textScale,
-                  0,
-                  0,
-                ),
-              ),
-            labelPosition,
-          ]}
-        />
-      </Billboard>
+        )}
+      </instancedMesh>
+      <Detailed distances={[0, hovered ? textScale * 10 : textScale]}>
+        <instancedMesh>
+          <Billboard>
+            <Text
+              font={'./RobotoMono-Regular.ttf'}
+              position={labelPosition
+                .clone()
+                .add(
+                  new THREE.Vector3(
+                    (isBody ? 4 : -2) * textScale,
+                    1 * textScale,
+                    0,
+                  ),
+                )}
+              fontSize={labelFontSize}
+              anchorX={isBody ? 'left' : 'right'}
+              anchorY={'bottom'}
+              outlineWidth={hovered ? 0.25 * textScale : 0}
+              outlineBlur={hovered ? 0.5 * textScale : 0}
+              outlineColor={poi.parent?.color ?? '#FFFFFF'}
+            >
+              {name}
+            </Text>
+            <Line
+              lineWidth={0.9}
+              points={[
+                new THREE.Vector3(0, 0, 0)
+                  .add(labelPosition)
+                  .normalize()
+                  .multiplyScalar(radius),
+                labelPosition,
+              ]}
+            />
+            <Line
+              lineWidth={0.9}
+              points={[
+                labelPosition
+                  .clone()
+                  .add(new THREE.Vector3(0, 5 * textScale, 0)),
+                labelPosition,
+              ]}
+            />
+            <Line
+              lineWidth={0.9}
+              points={[
+                labelPosition
+                  .clone()
+                  .add(
+                    new THREE.Vector3(
+                      (isBody ? 2 : -2) * name.length * textScale,
+                      0,
+                      0,
+                    ),
+                  ),
+                labelPosition,
+              ]}
+            />
+          </Billboard>
+        </instancedMesh>
+        <instancedMesh />
+      </Detailed>
     </group>
   )
 }
