@@ -170,7 +170,7 @@ export const Grid: ForwardRefComponent<
     }
 
     return (
-      <instancedMesh ref={ref} frustumCulled={false} {...props}>
+      <mesh ref={ref} frustumCulled={false} {...props}>
         <gridMaterial
           transparent
           extensions-derivatives
@@ -179,7 +179,7 @@ export const Grid: ForwardRefComponent<
           {...uniforms2}
         />
         <planeGeometry args={args} />
-      </instancedMesh>
+      </mesh>
     )
   },
 )

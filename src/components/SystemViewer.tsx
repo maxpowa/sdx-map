@@ -1,4 +1,4 @@
-import { Line, Points } from '@react-three/drei'
+import { Line, Points, Stars } from '@react-three/drei'
 import { type OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { button, folder, useControls } from 'leva'
 import { ScaleProvider, useTextScale } from '../hooks/scale'
@@ -110,7 +110,7 @@ export function StarSystem(props: {
 
   const systemData = useSystemData(system)
 
-  const { showGrid, showHighSpeed, axes, turns } = useControls({
+  const { showGrid, showHighSpeed, axes, turns, stars } = useControls({
     'View Settings': folder(
       {
         turns: {
@@ -129,6 +129,10 @@ export function StarSystem(props: {
           value: false,
           label: 'Axes',
         },
+        stars: {
+          value: false,
+          label: 'Distant Stars',
+        },
       },
       { collapsed: true },
     ),
@@ -136,6 +140,7 @@ export function StarSystem(props: {
 
   return (
     <>
+      {stars && <Stars radius={100000000 * coordScale} fade />}
       <ScaleProvider value={{ coordScale, textScale }}>
         {showGrid && (
           <Grid
