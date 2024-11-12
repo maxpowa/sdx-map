@@ -12,7 +12,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
     const world = DraconisExpanseSystem[system].clone()
     world.add(routeParam)
 
-    return DraconisExpanseSystem[system]
+    return world
       .pois(true, true)
       .sort((a, b) => a.name.localeCompare(b.name))
       .reduce(
