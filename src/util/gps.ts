@@ -21,9 +21,9 @@ export const ZoneColors = {
 const bodies = {
   Ariel: 20000,
   Ceres: 60000 / 0.7,
-  Deimos: 9000,
+  Deimos: 9000 / 0.7,
   Earth: 200000,
-  Europa: 21000,
+  Europa: 21000 / 0.7,
   Ganymede: 35000 / 0.7,
   Ilus: 120000 / 0.7, // guess, no source
   'Ilus 1': 16000 / 0.7, // rough estimate based on survey data (I went there and figured an approximate value)
@@ -34,11 +34,11 @@ const bodies = {
   'Kronos 1': 20000 / 0.7, // guess, no source
   Luna: 28000,
   Mars: 120000,
-  Pallas: 28000,
-  Phobos: 8800,
-  Rhea: 18000,
+  Pallas: 28000 / 0.7,
+  Phobos: 8800 / 0.7,
+  Rhea: 18000 / 0.7,
   Saturn: 120000,
-  Titan: 20000,
+  Titan: 20000 / 0.7,
   Uranus: 160000,
   Vesta: 56000,
 } as Record<string, number>
