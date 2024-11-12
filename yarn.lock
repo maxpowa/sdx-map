@@ -3893,6 +3893,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-datalist-input@npm:^3.2.1":
+  version: 3.2.1
+  resolution: "react-datalist-input@npm:3.2.1"
+  peerDependencies:
+    react: ^18.0.0
+    react-dom: ^18.0.0
+  checksum: 10c0/57000fb6bd0fa060295e6557d549e627e2810da979a12670af51f5e7519343d0828223a70ffc50d48c99da0f5fce62a786bd829befec4f5de2c73b400289a3aa
+  languageName: node
+  linkType: hard
+
 "react-dom@npm:^18.3.1":
   version: 18.3.1
   resolution: "react-dom@npm:18.3.1"
@@ -4119,6 +4129,7 @@ __metadata:
     lint-staged: "npm:^15.2.10"
     prettier: "npm:^3.3.3"
     react: "npm:^18.3.1"
+    react-datalist-input: "npm:^3.2.1"
     react-dom: "npm:^18.3.1"
     suspend-react: "npm:^0.1.3"
     three: "npm:^0.170.0"

@@ -47,6 +47,7 @@ const RAW_RUNTIME_STATE =
           ["lint-staged", "npm:15.2.10"],\
           ["prettier", "npm:3.3.3"],\
           ["react", "npm:18.3.1"],\
+          ["react-datalist-input", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:3.2.1"],\
           ["react-dom", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:18.3.1"],\
           ["suspend-react", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3"],\
           ["three", "npm:0.170.0"],\
@@ -4933,6 +4934,32 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["react-datalist-input", [\
+      ["npm:3.2.1", {\
+        "packageLocation": "../../.yarn/berry/cache/react-datalist-input-npm-3.2.1-fd0e584d7d-10c0.zip/node_modules/react-datalist-input/",\
+        "packageDependencies": [\
+          ["react-datalist-input", "npm:3.2.1"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:3.2.1", {\
+        "packageLocation": "./.yarn/__virtual__/react-datalist-input-virtual-5a653fb7b4/3/.yarn/berry/cache/react-datalist-input-npm-3.2.1-fd0e584d7d-10c0.zip/node_modules/react-datalist-input/",\
+        "packageDependencies": [\
+          ["react-datalist-input", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:3.2.1"],\
+          ["@types/react", "npm:18.3.12"],\
+          ["@types/react-dom", "npm:18.3.1"],\
+          ["react", "npm:18.3.1"],\
+          ["react-dom", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:18.3.1"]\
+        ],\
+        "packagePeers": [\
+          "@types/react-dom",\
+          "@types/react",\
+          "react-dom",\
+          "react"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["react-dom", [\
       ["npm:18.3.1", {\
         "packageLocation": "../../.yarn/berry/cache/react-dom-npm-18.3.1-a805663f38-10c0.zip/node_modules/react-dom/",\
@@ -5169,6 +5196,7 @@ const RAW_RUNTIME_STATE =
           ["lint-staged", "npm:15.2.10"],\
           ["prettier", "npm:3.3.3"],\
           ["react", "npm:18.3.1"],\
+          ["react-datalist-input", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:3.2.1"],\
           ["react-dom", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:18.3.1"],\
           ["suspend-react", "virtual:92dff7ab157ca01af317631501ddeab913f859b0ed4c15f809c9967b854735db6ab906d3c4db08440d46af32270279c7bd50ed33981d83ba5037a21cfbe341ab#npm:0.1.3"],\
           ["three", "npm:0.170.0"],\

@@ -13,3 +13,12 @@
 body {
   margin: 0;
 }
+
+input {
+  all: unset;
+}
+
+ul[role='listbox'],
+ol[role='listbox'] {
+  list-style: none;
+}

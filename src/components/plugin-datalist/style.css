@@ -1,0 +1,27 @@
+
+
+.leva-select-datalist-listbox-container {
+    position: relative;
+    overflow: auto;
+    max-height: 200px;
+    align-items: start;
+    border-radius: var(--leva-space-xs);
+    margin-top: var(--leva-space-rowGap);
+}
+
+.leva-select-datalist-listbox {
+    padding: unset;
+    margin: unset;
+    background-color: var(--leva-colors-elevation1);
+}
+
+.leva-select-datalist-entry {
+    cursor: pointer;
+    border-bottom-color: var(--leva-colors-elevation3);
+    border-bottom-width: 1px;
+    border-bottom-style: dashed;
+}
+
+.leva-select-datalist-entry:hover {
+    background-color: var(--leva-colors-elevation3);
+}

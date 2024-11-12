@@ -1,8 +1,9 @@
 import { useControls, folder, button } from 'leva'
 import { useState, useMemo, useEffect } from 'react'
 import { DraconisExpanseSystem } from '../data/sdx'
-import { GPSRoute, GPSPoint, computeShortestRoute } from '../util/gps'
+import { GPSRoute, computeShortestRoute } from '../util/gps'
 import { getGPSList } from './useSystemData'
+import datalist from '../components/plugin-datalist'
 
 const routeParam = getGPSList('gps')
 
@@ -15,24 +16,18 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
     return world
       .pois(true, true)
       .sort((a, b) => a.name.localeCompare(b.name))
-      .reduce(
-        (acc, poi) => {
-          acc[poi.name] = poi
-          return acc
-        },
-        {} as Record<string, GPSPoint>,
-      )
+      .map((each) => ({ label: each.name, value: each }))
   }, [system])
 
   const [{ Start: from, End: to, allowLithoturns }, set] = useControls(
     () => ({
       'Route Planner': folder({
-        Start: {
+        Start: datalist({
           options: pois,
-        },
-        End: {
+        }),
+        End: datalist({
           options: pois,
-        },
+        }),
         allowLithoturns: {
           value: true,
           label: 'Allow Lithoturns (slam into slowzones instead of braking)',
@@ -44,14 +39,12 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
 
   useEffect(() => {
     set({
-      Start:
-        routeParam.pois()[0] ??
+      Start: (routeParam.pois()[0] ??
         pois['MCRN Free Rebel Fleet'] ??
-        pois[Object.keys(pois)[0]],
-      End:
-        routeParam.pois()[1] ??
+        pois[Object.keys(pois)[0]]) as any,
+      End: (routeParam.pois()[1] ??
         pois['Pallas Station'] ??
-        pois[Object.keys(pois)[1]],
+        pois[Object.keys(pois)[1]]) as any,
     })
     setRoute([])
   }, [pois, set, system])
@@ -63,7 +56,12 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         const world = DraconisExpanseSystem[system].clone()
         world.add(getGPSList('route'))
 
-        const route = computeShortestRoute(from, to, world, allowLithoturns)
+        const route = computeShortestRoute(
+          from as any,
+          to as any,
+          world,
+          allowLithoturns,
+        )
 
         console.log(route)
         setRoute(route)
