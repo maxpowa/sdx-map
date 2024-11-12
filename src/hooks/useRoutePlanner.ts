@@ -5,7 +5,6 @@ import {
   GPSRoute,
   GPSPoint,
   computeShortestRoute,
-  GPSList,
   GPSPointOfInterest,
 } from '../util/gps'
 import { getParams } from './useSynchronizedSetting'
@@ -42,6 +41,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
       mode: {
         value: gpsParams ? 'Advanced' : 'Simple',
         options: ['Simple', 'Advanced'],
+        label: 'Mode',
       },
     }),
   })
@@ -63,7 +63,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
           editable: true,
           rows: true,
           label: 'GPS List (one per line, SHIFT-ENTER to create a new line)',
-          onChange: (value: string, key: string, self: any) => {
+          onChange: (value: string, _, ctx) => {
             if (value.length < 1) return
             const newPoints = value
               .split('\n')
@@ -80,7 +80,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
               newPoints.length != waypoints?.length ||
               newPoints.some((each, index) => !each.equals(waypoints[index]))
             ) {
-              self.value =
+              ctx.value =
                 newPoints.map((each) => each.toString()).join('\n') + '\n'
               setWaypoints(newPoints)
             }

@@ -169,7 +169,7 @@ describe('Route Planner', () => {
     `)
     const deimos = world.pois(false, true)[0]
     const phobos = world.pois(false, true)[1]
-    const result = computeShortestRoute(deimos, phobos, world)
+    const result = computeShortestRoute([deimos, phobos], world)
     expect(result).toMatchSnapshot()
   })
 
@@ -182,7 +182,7 @@ describe('Route Planner', () => {
       .pois(false, true)
       .find((body) => body.name === 'Ariel') as GPSPoint
 
-    const route = computeShortestRoute(deimos, ariel, globalData)
+    const route = computeShortestRoute([deimos, ariel], globalData)
     expect(route).toMatchSnapshot()
   })
 })
