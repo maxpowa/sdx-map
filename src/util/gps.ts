@@ -242,18 +242,20 @@ export class GPSList {
     this.arrange()
   }
 
-  push(...args: GPSPointOfInterest[]): void {
+  push(...args: GPSPointOfInterest[]): GPSPointOfInterest[] {
     this.list.push(...args)
     this.arrange()
+    // returns the added points
+    return [...args]
   }
 
-  addFromString(gps: string): void {
+  addFromString(gps: string): GPSPointOfInterest[] {
     const lines = gps
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => !!line)
     const results = lines.map((line) => GPSPoint.fromString(line))
-    this.push(...results)
+    return this.push(...results)
   }
 
   pois(
@@ -638,34 +640,37 @@ export function* traverseRoutingPath(
 }
 
 export function* traverseRoute(
-  from: GPSPoint,
-  to: GPSPoint,
+  waypoints: GPSPoint[],
   world: GPSList,
-  allowLithobraking: boolean = true,
+  allowLithoturns: boolean = true,
 ): Generator<GPSPoint, void> {
-  const isStartInSlowZone = from.parent && !GPSZone.isHighSpeed(from.parent)
+  if (waypoints.length < 2) throw new Error('too few waypoints')
+
+  const isStartInSlowZone =
+    waypoints[0].parent && !GPSZone.isHighSpeed(waypoints[0].parent)
   yield new GPSPoint(
-    from.x,
-    from.y,
-    from.z,
+    waypoints[0].x,
+    waypoints[0].y,
+    waypoints[0].z,
     'poi',
-    from.name,
-    from.color,
+    waypoints[0].name,
+    waypoints[0].color,
     isStartInSlowZone ? 'slowzone' : 'highspeed',
   )
-  yield* traverseRoutingPath(
-    from,
-    to,
-    world,
-    allowLithobraking ? 0 : RoutingModes.No_Lithoturns,
-  )
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    yield* traverseRoutingPath(
+      waypoints[i],
+      waypoints[i + 1],
+      world,
+      allowLithoturns ? 0 : RoutingModes.No_Lithoturns,
+    )
+  }
 }
 
 export const computeShortestRoute = (
-  from: GPSPoint,
-  to: GPSPoint,
+  waypoints: GPSPoint[],
   world: GPSList,
-  allowLithobraking: boolean = true,
+  allowLithoturns: boolean = true,
 ): GPSRoute => {
-  return [...traverseRoute(from, to, world, allowLithobraking)]
+  return [...traverseRoute(waypoints, world, allowLithoturns)]
 }

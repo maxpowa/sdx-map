@@ -1,37 +1,90 @@
 import { useControls, folder, button } from 'leva'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { DraconisExpanseSystem } from '../data/sdx'
-import { GPSRoute, GPSPoint, computeShortestRoute } from '../util/gps'
-import { getGPSList } from './useSystemData'
+import {
+  GPSRoute,
+  GPSPoint,
+  computeShortestRoute,
+  GPSList,
+  GPSPointOfInterest,
+} from '../util/gps'
+import { getParams } from './useSynchronizedSetting'
 
-const routeParam = getGPSList('gps')
+const gpsParams = getParams().getAll('gps').join('\n')
 
 export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
   const [route, setRoute] = useState<GPSRoute>([])
-  const pois = useMemo(() => {
-    const world = DraconisExpanseSystem[system].clone()
-    world.add(routeParam)
 
-    return world
-      .pois(true, true)
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .reduce(
-        (acc, poi) => {
-          acc[poi.name] = poi
-          return acc
-        },
-        {} as Record<string, GPSPoint>,
-      )
-  }, [system])
+  const [waypoints, setWaypoints] = useState<GPSPointOfInterest[]>()
+  const [world, pois] = useMemo(() => {
+    const world = DraconisExpanseSystem[system].clone()
+    if (waypoints) {
+      world.push(...waypoints)
+    }
+
+    return [
+      world,
+      world
+        .pois(true, true)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .reduce(
+          (acc, poi) => {
+            acc[poi.name] = poi
+            return acc
+          },
+          {} as Record<string, GPSPoint>,
+        ),
+    ]
+  }, [system, waypoints])
+
+  const { mode } = useControls({
+    'Route Planner': folder({
+      mode: {
+        value: gpsParams ? 'Advanced' : 'Simple',
+        options: ['Simple', 'Advanced'],
+      },
+    }),
+  })
 
   const [{ Start: from, End: to, allowLithoturns }, set] = useControls(
     () => ({
       'Route Planner': folder({
         Start: {
+          render: () => mode === 'Simple',
           options: pois,
         },
         End: {
+          render: () => mode === 'Simple',
           options: pois,
+        },
+        GPS: {
+          render: () => mode === 'Advanced',
+          value: waypoints ? waypoints.join('\n') : gpsParams,
+          editable: true,
+          rows: true,
+          label: 'GPS List (one per line, SHIFT-ENTER to create a new line)',
+          onChange: (value: string, key: string, self: any) => {
+            if (value.length < 1) return
+            const newPoints = value
+              .split('\n')
+              .map((each) => {
+                try {
+                  return GPSPoint.fromString(each)
+                } catch (e) {
+                  console.error(e)
+                  return null
+                }
+              })
+              .filter((each) => !!each)
+            if (
+              newPoints.length != waypoints?.length ||
+              newPoints.some((each, index) => !each.equals(waypoints[index]))
+            ) {
+              self.value =
+                newPoints.map((each) => each.toString()).join('\n') + '\n'
+              setWaypoints(newPoints)
+            }
+          },
         },
         allowLithoturns: {
           value: true,
@@ -39,33 +92,38 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         },
       }),
     }),
-    [pois, setRoute],
+    [pois, setRoute, mode],
   )
 
   useEffect(() => {
     set({
-      Start:
-        routeParam.pois()[0] ??
-        pois['MCRN Free Rebel Fleet'] ??
-        pois[Object.keys(pois)[0]],
-      End:
-        routeParam.pois()[1] ??
-        pois['Pallas Station'] ??
-        pois[Object.keys(pois)[1]],
+      Start: pois['MCRN Free Rebel Fleet'] ?? pois[Object.keys(pois)[0]],
+      End: pois['Pallas Station'] ?? pois[Object.keys(pois)[1]],
     })
     setRoute([])
-  }, [pois, set, system])
+  }, [pois, set, system, waypoints])
 
   useControls(
     'Route Planner',
     {
       Route: button(() => {
-        const world = DraconisExpanseSystem[system].clone()
-        world.add(getGPSList('route'))
+        if (mode === 'Advanced' && !waypoints) {
+          alert('Please enter at least two waypoints to calculate a route.')
+          return
+        }
 
-        const route = computeShortestRoute(from, to, world, allowLithoturns)
+        let route
+        try {
+          route = computeShortestRoute(
+            mode === 'Simple' ? [from, to] : waypoints!,
+            world,
+            allowLithoturns,
+          )
+        } catch (e) {
+          alert(e)
+          return
+        }
 
-        console.log(route)
         setRoute(route)
         // TODO: Move to proper inline modal or something instead of alert
         alert(
@@ -81,7 +139,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         )
       }),
     },
-    [system, from, to, allowLithoturns, route],
+    [system, from, to, allowLithoturns, route, mode, waypoints],
   )
 
   return route
