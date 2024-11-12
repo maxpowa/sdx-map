@@ -6,6 +6,7 @@ import {
   GPSPoint,
   computeShortestRoute,
   GPSPointOfInterest,
+  optimizeRoute,
 } from '../util/gps'
 import { getParams } from './useSynchronizedSetting'
 
@@ -114,10 +115,23 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
 
         let route
         try {
+          const beforeRoute = performance.now()
           route = computeShortestRoute(
             mode === 'Simple' ? [from, to] : waypoints!,
             world,
             allowLithoturns,
+          )
+          const afterRoute = performance.now()
+          try {
+            route = optimizeRoute(route, world)
+          } catch (e) {
+            console.error('Failed to optimize route:', e)
+          }
+          const afterOptimize = performance.now()
+
+          console.log(`Route calculation took ${afterRoute - beforeRoute} ms`)
+          console.log(
+            `Route optimization took ${afterOptimize - afterRoute} ms`,
           )
         } catch (e) {
           alert(e)

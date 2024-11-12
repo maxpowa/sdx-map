@@ -674,3 +674,34 @@ export const computeShortestRoute = (
 ): GPSRoute => {
   return [...traverseRoute(waypoints, world, allowLithoturns)]
 }
+
+export const optimizer = (route: GPSRoute, world: GPSList): GPSRoute => {
+  const optimizedRoute = [route[0]]
+
+  for (let i = 1; i < route.length - 1; i++) {
+    const prev = route[i - 1]
+    const current = route[i]
+    const next = route[i + 1]
+
+    if (computeShortestRoute([prev, next], world).length > 2) {
+      optimizedRoute.push(current)
+    }
+  }
+
+  optimizedRoute.push(route[route.length - 1])
+
+  return optimizedRoute
+}
+
+export const optimizeRoute = (route: GPSRoute, world: GPSList): GPSRoute => {
+  // Iterate over the route and find if there are any points that can be removed
+  // This is a very naive implementation, but it should work for most cases
+  let optimizedRoute = route
+  let prevLength
+  do {
+    prevLength = optimizeRoute.length
+    optimizedRoute = optimizer(optimizedRoute, world)
+  } while (optimizedRoute.length < prevLength)
+
+  return optimizedRoute
+}
