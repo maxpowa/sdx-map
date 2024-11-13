@@ -12,13 +12,13 @@ import { getParams } from './useSynchronizedSetting'
 
 const gpsParams = getParams().getAll('gps').join('\n')
 
-export function buildJourney(route?: GPSRoute) {
+export function buildJourney(route: GPSRoute, smallGridSpeeds: boolean) {
   if (route) {
     return [
       '[Journey Start]',
       ...route.map(
         (each, index) =>
-          `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
+          `${each.category === 'highspeed' ? '14998' : smallGridSpeeds ? '748  ' : '498  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
       ),
       '[Journey End]',
     ].join('\n')
@@ -64,54 +64,60 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
 
   const keys = Object.keys(pois)
 
-  const [{ Start: from, End: to, allowLithoturns }, set] = useControls(
-    () => ({
-      'Route Planner': folder({
-        Start: {
-          render: () => mode === 'Simple',
-          options: keys,
-        },
-        End: {
-          render: () => mode === 'Simple',
-          options: keys,
-        },
-        GPS: {
-          render: () => mode === 'Advanced',
-          value: waypoints ? waypoints.join('\n') : gpsParams,
-          editable: true,
-          rows: true,
-          label: 'GPS List (one per line, SHIFT-ENTER to create a new line)',
-          onChange: (value: string, _, ctx) => {
-            if (value.length < 1) return
-            const newPoints = value
-              .split('\n')
-              .map((each) => {
-                try {
-                  return GPSPoint.fromString(each)
-                } catch (e) {
-                  console.error(e)
-                  return null
-                }
-              })
-              .filter((each) => !!each)
-            if (
-              newPoints.length != waypoints?.length ||
-              newPoints.some((each, index) => !each.equals(waypoints[index]))
-            ) {
-              ctx.value =
-                newPoints.map((each) => each.toString()).join('\n') + '\n'
-              setWaypoints(newPoints)
-            }
+  const [{ Start: from, End: to, allowLithoturns, smallGridSpeeds }, set] =
+    useControls(
+      () => ({
+        'Route Planner': folder({
+          Start: {
+            render: () => mode === 'Simple',
+            options: keys,
           },
-        },
-        allowLithoturns: {
-          value: true,
-          label: 'Allow Lithoturns (slam into slowzones instead of braking)',
-        },
+          End: {
+            render: () => mode === 'Simple',
+            options: keys,
+          },
+          GPS: {
+            render: () => mode === 'Advanced',
+            value: waypoints ? waypoints.join('\n') : gpsParams,
+            editable: true,
+            rows: true,
+            label: 'GPS List (one per line, SHIFT-ENTER to create a new line)',
+            onChange: (value: string, _, ctx) => {
+              if (value.length < 1) return
+              const newPoints = value
+                .split('\n')
+                .map((each) => {
+                  try {
+                    return GPSPoint.fromString(each)
+                  } catch (e) {
+                    console.error(e)
+                    return null
+                  }
+                })
+                .filter((each) => !!each)
+              if (
+                newPoints.length != waypoints?.length ||
+                newPoints.some((each, index) => !each.equals(waypoints[index]))
+              ) {
+                ctx.value =
+                  newPoints.map((each) => each.toString()).join('\n') + '\n'
+                setWaypoints(newPoints)
+              }
+            },
+          },
+          allowLithoturns: {
+            value: true,
+            label: 'Allow Lithoturns (slam into slowzones instead of braking)',
+          },
+          smallGridSpeeds: {
+            value: false,
+            label:
+              'Small Grid (in slow zones: SG has 750m/s max, LG has 500m/s max. in high speed zones: both have 15000m/s max)',
+          },
+        }),
       }),
-    }),
-    [keys, setRoute, mode],
-  )
+      [keys, setRoute, mode],
+    )
 
   useEffect(() => {
     set({
@@ -162,10 +168,21 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         }
 
         const route = computeRoute()
-        navigator.clipboard.writeText(buildJourney(route))
+        if (route) {
+          navigator.clipboard.writeText(buildJourney(route, smallGridSpeeds))
+        }
       }),
     },
-    [system, from, to, allowLithoturns, route, mode, waypoints],
+    [
+      system,
+      from,
+      to,
+      allowLithoturns,
+      route,
+      mode,
+      waypoints,
+      smallGridSpeeds,
+    ],
   )
 
   const getRouteAndCopy = useCallback(
@@ -191,12 +208,13 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         label: '',
         render: () => route.length > 0,
         opts: {
-          'Copy NavOS Journey': () => getRouteAndCopy((r) => buildJourney(r)),
+          'Copy NavOS Journey': () =>
+            getRouteAndCopy((r) => buildJourney(r, smallGridSpeeds)),
           'Copy GPS List': () => getRouteAndCopy((r) => r.join('\n')),
         },
       }),
     },
-    [route, getRouteAndCopy],
+    [route, getRouteAndCopy, smallGridSpeeds],
   )
 
   return route
