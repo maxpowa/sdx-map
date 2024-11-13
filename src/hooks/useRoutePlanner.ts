@@ -20,7 +20,7 @@ export function buildJourney(route?: GPSRoute) {
         (each, index) =>
           `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
       ),
-      'Journey End',
+      '[Journey End]',
     ].join('\n')
   }
   return ''
@@ -176,7 +176,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
       }
 
       if (activeRoute && activeRoute.length > 0) {
-        navigator.clipboard.writeText(stringify(route))
+        navigator.clipboard.writeText(stringify(activeRoute))
       } else {
         alert('No route to copy')
       }
