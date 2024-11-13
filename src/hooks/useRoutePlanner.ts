@@ -1,5 +1,5 @@
-import { useControls, folder, button } from 'leva'
-import { useState, useEffect, useMemo } from 'react'
+import { useControls, folder, button, buttonGroup } from 'leva'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { DraconisExpanseSystem } from '../data/sdx'
 import {
   GPSRoute,
@@ -11,6 +11,20 @@ import {
 import { getParams } from './useSynchronizedSetting'
 
 const gpsParams = getParams().getAll('gps').join('\n')
+
+export function buildJourney(route?: GPSRoute) {
+  if (route) {
+    return [
+      '[Journey Start]',
+      ...route.map(
+        (each, index) =>
+          `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
+      ),
+      'Journey End',
+    ].join('\n')
+  }
+  return ''
+}
 
 export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
   const [route, setRoute] = useState<GPSRoute>([])
@@ -111,6 +125,33 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
     setRoute([])
   }, [pois, set, system, waypoints])
 
+  const computeRoute = useCallback(() => {
+    let route
+    try {
+      const beforeRoute = performance.now()
+      route = computeShortestRoute(
+        mode === 'Simple' ? [pois[from], pois[to]] : waypoints!,
+        world,
+        allowLithoturns,
+      )
+      const afterRoute = performance.now()
+      try {
+        route = optimizeRoute(route, world)
+      } catch (e) {
+        console.error('Failed to optimize route:', e)
+      }
+      const afterOptimize = performance.now()
+
+      console.log(`Route calculation took ${afterRoute - beforeRoute} ms`)
+      console.log(`Route optimization took ${afterOptimize - afterRoute} ms`)
+      setRoute(route)
+    } catch (e) {
+      alert(e)
+    }
+
+    return route
+  }, [mode, pois, from, to, waypoints, world, allowLithoturns])
+
   useControls(
     'Route Planner',
     {
@@ -120,47 +161,42 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
           return
         }
 
-        let route
-        try {
-          const beforeRoute = performance.now()
-          route = computeShortestRoute(
-            mode === 'Simple' ? [pois[from], pois[to]] : waypoints!,
-            world,
-            allowLithoturns,
-          )
-          const afterRoute = performance.now()
-          try {
-            route = optimizeRoute(route, world)
-          } catch (e) {
-            console.error('Failed to optimize route:', e)
-          }
-          const afterOptimize = performance.now()
-
-          console.log(`Route calculation took ${afterRoute - beforeRoute} ms`)
-          console.log(
-            `Route optimization took ${afterOptimize - afterRoute} ms`,
-          )
-        } catch (e) {
-          alert(e)
-          return
-        }
-
-        setRoute(route)
-        // TODO: Move to proper inline modal or something instead of alert
-        alert(
-          'The route has been calculated and is displayed on the map. A NavOS journey has been printed below for your convenience.\n\n' +
-            '[Journey Start]\n' +
-            route
-              .map(
-                (each, index) =>
-                  `${each.category === 'highspeed' ? '10000' : '750  '} ${index === route.length - 1 ? 'true ' : 'false'} ${each}`,
-              )
-              .join('\n') +
-            '\n[Journey End]',
-        )
+        const route = computeRoute()
+        navigator.clipboard.writeText(buildJourney(route))
       }),
     },
     [system, from, to, allowLithoturns, route, mode, waypoints],
+  )
+
+  const getRouteAndCopy = useCallback(
+    (stringify: (route: GPSRoute) => string) => {
+      let activeRoute = route as GPSRoute | undefined
+      if (route.length < 1) {
+        activeRoute = computeRoute()
+      }
+
+      if (activeRoute && activeRoute.length > 0) {
+        navigator.clipboard.writeText(stringify(route))
+      } else {
+        alert('No route to copy')
+      }
+    },
+    [route, computeRoute],
+  )
+
+  useControls(
+    'Route Planner',
+    {
+      Copy: buttonGroup({
+        label: '',
+        render: () => route.length > 0,
+        opts: {
+          'Copy NavOS Journey': () => getRouteAndCopy((r) => buildJourney(r)),
+          'Copy GPS List': () => getRouteAndCopy((r) => r.join('\n')),
+        },
+      }),
+    },
+    [route, getRouteAndCopy],
   )
 
   return route
