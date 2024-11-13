@@ -4,7 +4,7 @@ import { useMemo, useCallback, useEffect } from 'react'
 import { DraconisExpanseSystem } from '../data/sdx'
 import { type OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { getParams } from './useSynchronizedSetting'
-import { GPSPoint, GPSList, GPSBody } from '../util/gps'
+import { GPSPoint, GPSSystem, GPSBody } from '../util/gps'
 import { useScale } from './scale'
 
 export function getGPSValue(key: string) {
@@ -18,9 +18,9 @@ export function getGPSValue(key: string) {
 
 export function getGPSList(key: string) {
   const params = getParams()
-  let value = new GPSList()
+  let value = new GPSSystem()
   if (params.has(key)) {
-    value = GPSList.fromString(params.getAll(key).join('\n'))
+    value = GPSSystem.fromString(params.getAll(key).join('\n'))
   }
   return value
 }

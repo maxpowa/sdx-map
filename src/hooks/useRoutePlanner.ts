@@ -22,10 +22,11 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
       world.push(...waypoints)
     }
 
+    const tempPois = [...world.pois(true), ...world.turns(true)]
+
     return [
       world,
-      world
-        .pois(true, true)
+      tempPois
         .sort((a, b) => a.name.localeCompare(b.name))
         .reduce(
           (acc, poi) => {
@@ -47,16 +48,18 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
     }),
   })
 
+  const keys = Object.keys(pois)
+
   const [{ Start: from, End: to, allowLithoturns }, set] = useControls(
     () => ({
       'Route Planner': folder({
         Start: {
           render: () => mode === 'Simple',
-          options: pois,
+          options: keys,
         },
         End: {
           render: () => mode === 'Simple',
-          options: pois,
+          options: keys,
         },
         GPS: {
           render: () => mode === 'Advanced',
@@ -93,13 +96,17 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         },
       }),
     }),
-    [pois, setRoute, mode],
+    [keys, setRoute, mode],
   )
 
   useEffect(() => {
     set({
-      Start: pois['MCRN Free Rebel Fleet'] ?? pois[Object.keys(pois)[0]],
-      End: pois['Pallas Station'] ?? pois[Object.keys(pois)[1]],
+      Start:
+        Object.keys(pois).find((key) => key === 'MCRN Free Rebel Fleet') ||
+        Object.keys(pois)[0],
+      End:
+        Object.keys(pois).find((key) => key === 'Pallas Station') ||
+        Object.keys(pois)[1],
     })
     setRoute([])
   }, [pois, set, system, waypoints])
@@ -117,7 +124,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         try {
           const beforeRoute = performance.now()
           route = computeShortestRoute(
-            mode === 'Simple' ? [from, to] : waypoints!,
+            mode === 'Simple' ? [pois[from], pois[to]] : waypoints!,
             world,
             allowLithoturns,
           )

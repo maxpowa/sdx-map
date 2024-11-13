@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Billboard, Sphere, Text } from '@react-three/drei'
 import { useCallback, useRef, useState } from 'react'
-import { GPSList, GPSZone } from '../util/gps'
+import { GPSZone } from '../util/gps'
 import { useScale, useTextScale } from '../hooks/scale'
 import { ThreeEvent, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from 'three/examples/jsm/Addons.js'
@@ -11,10 +11,10 @@ import MeshFresnelMaterial from './MeshFresnelMaterial'
 export function Zone(props: {
   zone: GPSZone
   visible: boolean
-  renderChildren: (data: GPSList) => JSX.Element
+  renderChildren: (data: GPSZone) => JSX.Element
 }) {
   const { zone, visible, renderChildren } = props
-  const { children, color, radius } = zone
+  const { color, radius } = zone
   const [x, y, z] = zone.relativeCoords()
 
   const groupRef = useRef<THREE.Group>(null!)
@@ -27,7 +27,7 @@ export function Zone(props: {
   const position = new THREE.Vector3(x, y, z)
   const scaledRadius = radius * scale
 
-  const isHighSpeed = GPSZone.isHighSpeed(zone)
+  const isHighSpeed = zone.isHighSpeed()
 
   const [showText, setShowText] = useState(true)
   useFrame((state) => {
@@ -141,7 +141,7 @@ export function Zone(props: {
           </instancedMesh>
         </Billboard>
       )}
-      {renderChildren(children)}
+      {renderChildren(zone)}
     </group>
   )
 }

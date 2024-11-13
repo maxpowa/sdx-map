@@ -46,7 +46,7 @@ const bodies = {
 const TURN_DISTANCE = 2500
 
 export class GPSPoint extends Vector3 {
-  class: string
+  class = 'poi'
   name: string
   color: string
   category?: string
@@ -57,14 +57,12 @@ export class GPSPoint extends Vector3 {
     x: number,
     y: number,
     z: number,
-    cls: string,
     name: string,
     color: string,
     category?: string,
     parent?: GPSZone,
   ) {
     super(x, y, z)
-    this.class = cls
     this.name = name
     this.x = x
     this.y = y
@@ -129,11 +127,20 @@ export class GPSPoint extends Vector3 {
       return new GPSBody(x, y, z, name, color ?? '#C8C8C8', bodies[name] / 2)
     }
 
-    return new GPSPoint(x, y, z, 'poi', name, color, category)
+    return new GPSPoint(x, y, z, name, color, category)
+  }
+}
+
+export class GPSTurn extends GPSPoint {
+  class = 'turn'
+
+  static isTurn = (point: GPSPointOfInterest): point is GPSTurn => {
+    return point.class === 'turn'
   }
 }
 
 export class GPSBody extends GPSPoint {
+  class = 'body'
   radius: number
 
   constructor(
@@ -146,7 +153,7 @@ export class GPSBody extends GPSPoint {
     category?: string,
     parent?: GPSZone,
   ) {
-    super(x, y, z, 'body', name, color, category, parent)
+    super(x, y, z, name, color, category, parent)
     this.radius = radius
   }
 
@@ -155,9 +162,11 @@ export class GPSBody extends GPSPoint {
   }
 }
 
-export class GPSZone extends GPSPoint {
-  radius: number
-  children: GPSList
+export class GPSZone extends GPSBody {
+  class = 'zone'
+
+  children = [] as GPSPointOfInterest[]
+  childZones = [] as GPSZone[]
 
   constructor(
     x: number,
@@ -166,16 +175,15 @@ export class GPSZone extends GPSPoint {
     name: string,
     color: string,
     radius: number,
-    children: GPSList = new GPSList(),
+    children: GPSPointOfInterest[] = [],
     category?: string,
     parent?: GPSZone,
   ) {
     if (!name.includes(' - (R:')) {
       name += ` - (R:${radius / 1000}km)`
     }
-    super(x, y, z, 'zone', name, color, category, parent)
-    this.radius = radius
-    this.children = children
+    super(x, y, z, name, color, radius, category, parent)
+    this.push(...children)
   }
 
   doesCapture(point: GPSPointOfInterest): boolean {
@@ -186,16 +194,112 @@ export class GPSZone extends GPSPoint {
     )
   }
 
-  push(point: GPSPointOfInterest): void {
-    point.parent = this
-    this.children.push(point)
+  push(...args: GPSPointOfInterest[]): GPSPointOfInterest[] {
+    const { zones, pois } = args.reduce(
+      (acc, poi) => {
+        if (GPSZone.isZone(poi)) {
+          acc.zones.push(poi)
+        } else {
+          acc.pois.push(poi)
+        }
+        return acc
+      },
+      { zones: [] as GPSZone[], pois: [] as GPSPointOfInterest[] },
+    )
+
+    const tempChildZones = [...this.childZones, ...zones].sort(
+      (a, b) => a.radius - b.radius,
+    )
+
+    // Nest zones within zones, again within their smallest possible parents
+    let i = tempChildZones.length
+    while (i--) {
+      const zone = tempChildZones[i]
+      const parentZone = tempChildZones.find(
+        (potentialParent) =>
+          zone !== potentialParent && potentialParent.doesCapture(zone),
+      )
+      if (parentZone) {
+        zone.parent = parentZone
+        parentZone.push(zone)
+        tempChildZones.splice(i, 1)
+      } else if (this.doesCapture(zone)) {
+        zone.parent = this
+      } else if (this.parent) {
+        zone.parent = this.parent
+        this.parent.push(zone)
+        tempChildZones.splice(i, 1)
+      }
+    }
+
+    // Nest POIs within the smallest parent zone
+    pois.forEach((poi) => {
+      const parentZone = tempChildZones.find((zone) => zone.doesCapture(poi))
+      if (parentZone) {
+        poi.parent = parentZone
+        parentZone.push(poi)
+      } else if (this.doesCapture(poi)) {
+        poi.parent = this
+        this.children.push(poi)
+
+        if (poi.class !== 'turn' && !this.isHighSpeed()) {
+          // Handle adding turns
+          const turnVec = this.vectorToEdge(poi, TURN_DISTANCE)
+          if (turnVec && !turnVec.equals(poi)) {
+            const turn = new GPSTurn(
+              turnVec.x,
+              turnVec.y,
+              turnVec.z,
+              `${poi.name} (Turn)`,
+              '#00FFFF',
+              poi.category,
+            )
+            // will use surrounding logic to determine the best zone to place the turn
+            this.parent?.push(turn)
+          }
+        }
+      } else if (this.parent) {
+        poi.parent = this.parent
+        this.parent?.push(poi)
+      }
+    })
+
+    // commit zone changes
+    this.childZones = tempChildZones.reverse()
+
+    return args
   }
 
-  toString(includeChildren: boolean = false): string {
-    if (includeChildren && this.children) {
-      return `${super.toString()}\n${this.children.toString()}`
-    }
-    return super.toString()
+  turns(recursive: boolean = false): GPSTurn[] {
+    return [
+      ...this.children.filter((poi) => GPSTurn.isTurn(poi)),
+      ...(recursive
+        ? this.zones(true, recursive).flatMap((zone) => zone.turns(recursive))
+        : []),
+    ]
+  }
+
+  pois(recursive: boolean = false): GPSPointOfInterest[] {
+    return [
+      ...this.children.filter((poi) => !GPSTurn.isTurn(poi)),
+      ...(recursive
+        ? this.zones(true, recursive).flatMap((zone) => zone.pois(recursive))
+        : []),
+    ]
+  }
+
+  zones(
+    includeHighSpeed: boolean = false,
+    recursive: boolean = false,
+  ): GPSZone[] {
+    return [
+      ...this.childZones.filter(
+        (zone) => includeHighSpeed || !zone.isHighSpeed(),
+      ),
+      ...(recursive
+        ? this.childZones.flatMap((zone) => zone.zones(includeHighSpeed, true))
+        : []),
+    ]
   }
 
   // "from" point must be inside of the zone
@@ -214,8 +318,19 @@ export class GPSZone extends GPSPoint {
     )
   }
 
-  static isHighSpeed(zone: GPSZone): boolean {
-    return zone.radius >= 2750000
+  isHighSpeed(): boolean {
+    return this.radius >= 2750000
+  }
+
+  toString(includeChildren: boolean = false): string {
+    if (includeChildren && (this.children || this.childZones)) {
+      return [
+        super.toString(),
+        ...this.children,
+        ...this.childZones.map((each) => each.toString(includeChildren)),
+      ].join('\n')
+    }
+    return super.toString()
   }
 
   static isZone(point: GPSPointOfInterest): point is GPSZone {
@@ -223,168 +338,47 @@ export class GPSZone extends GPSPoint {
   }
 }
 
-export type GPSPointOfInterest = GPSPoint | GPSBody | GPSZone
+export class GPSSystem extends GPSZone {
+  class = 'system'
 
-export class GPSList {
-  private list = [] as GPSPointOfInterest[]
-  private zoneCount = 0
-
-  constructor(...args: GPSPointOfInterest[]) {
-    this.list.push(...args)
-    this.arrange()
+  constructor(children: GPSPointOfInterest[] = []) {
+    super(0, 0, 0, 'System', '#FFFFFF', -1, children)
   }
 
-  // Add multiple GPSLists together
-  add(...args: GPSList[]): void {
-    for (const arg of args) {
-      this.list.push(...arg.list)
-    }
-    this.arrange()
+  vectorToEdge(from: GPSPoint): Vector3 {
+    return from
   }
 
-  push(...args: GPSPointOfInterest[]): GPSPointOfInterest[] {
-    this.list.push(...args)
-    this.arrange()
-    // returns the added points
-    return [...args]
-  }
-
-  addFromString(gps: string): GPSPointOfInterest[] {
-    const lines = gps
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => !!line)
-    const results = lines.map((line) => GPSPoint.fromString(line))
-    return this.push(...results)
-  }
-
-  pois(
-    withTurns: boolean = false,
-    recursive: boolean = false,
-  ): GPSPointOfInterest[] {
-    return this.list.flatMap((poi) => {
-      if (GPSZone.isZone(poi)) {
-        return recursive ? poi.children.pois(withTurns, recursive) : []
-      }
-      if (withTurns && poi.parent && !GPSZone.isHighSpeed(poi.parent)) {
-        const turnVec = poi.parent?.vectorToEdge(poi, TURN_DISTANCE)
-        if (turnVec && !turnVec.equals(poi)) {
-          return [
-            poi,
-            new GPSPoint(
-              turnVec.x,
-              turnVec.y,
-              turnVec.z,
-              'turn',
-              `${poi.name} (Turn)`,
-              '#00FFFF',
-              poi.category,
-              poi.parent,
-            ),
-          ]
-        }
-      }
-      return [poi]
-    })
-  }
-
-  zones(withHighSpeed: boolean = false, recursive: boolean = false): GPSZone[] {
-    return this.list.flatMap((result) => {
-      if (GPSZone.isZone(result)) {
-        return withHighSpeed || !GPSZone.isHighSpeed(result)
-          ? [
-              ...(recursive
-                ? result.children.zones(withHighSpeed, recursive)
-                : []),
-              result,
-            ]
-          : [
-              ...(recursive
-                ? result.children.zones(withHighSpeed, recursive)
-                : []),
-            ]
-      }
-      return []
-    }) as GPSZone[]
-  }
-
-  sort(
-    compareFn?: (a: GPSPointOfInterest, b: GPSPointOfInterest) => number,
-  ): GPSPointOfInterest[] {
-    return this.list.sort(compareFn)
-  }
-
-  map<T>(callback: (point: GPSPointOfInterest, index: number) => T): T[] {
-    return this.list.map(callback)
-  }
-
-  count(): number {
-    return this.list.length
-  }
-
-  arrange(): GPSList {
-    const zones = this.list.filter((result) => GPSZone.isZone(result))
-    const pois = this.list.filter((result) => !GPSZone.isZone(result))
-
-    // sort zones small -> large to make sure pois find smallest zone they are within
-    zones.sort((a, b) => a.radius - b.radius)
-
-    const outsidePOIs = [] as GPSPointOfInterest[]
-
-    // Nest POIs within the smallest parent zone
-    pois.forEach((poi) => {
-      const parentZone = zones.find((zone) => zone.doesCapture(poi))
-      if (parentZone) {
-        poi.parent = parentZone
-        parentZone.push(poi)
-      } else {
-        outsidePOIs.push(poi)
-      }
-    })
-
-    if (zones.length !== this.zoneCount) {
-      // Nest zones within zones, again within their smallest possible parents
-      let i = zones.length
-      while (i--) {
-        const zone = zones[i]
-        const parentZone = zones.find(
-          (potentialParent) =>
-            zone !== potentialParent && potentialParent.doesCapture(zone),
-        )
-        if (parentZone) {
-          zone.parent = parentZone
-          parentZone.push(zone)
-          zones.splice(i, 1)
-        }
-      }
-
-      this.zoneCount = zones.length
-    }
-    this.list = [...zones.reverse(), ...outsidePOIs]
-
-    return this
-  }
-
-  clone(): GPSList {
-    return new GPSList(...this.list)
+  doesCapture(): boolean {
+    return true
   }
 
   toString(): string {
-    if (this.list.length === 0) return ''
-    return [this.list.map((p) => p.toString(true)).join('\n')]
-      .filter((group) => !!group)
-      .join('\n')
+    return [
+      ...this.children,
+      ...this.childZones.map((each) => each.toString(true)),
+    ].join('\n')
   }
 
-  static fromString(gps: string): GPSList {
-    const lines = gps
+  clone(): this {
+    return GPSSystem.fromString(this.toString()) as this
+  }
+
+  static isSystem(point: GPSPointOfInterest): point is GPSSystem {
+    return point.class === 'system'
+  }
+
+  static fromString(gps: string): GPSSystem {
+    const children = gps
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => !!line)
-    const results = lines.map((line) => GPSPoint.fromString(line))
-    return new GPSList(...results)
+      .map((line) => GPSPoint.fromString(line))
+    return new GPSSystem(children)
   }
 }
+
+export type GPSPointOfInterest = GPSPoint | GPSTurn | GPSBody | GPSZone
 
 export type GPSRoute = GPSPoint[]
 
@@ -409,7 +403,7 @@ export enum RoutingModes {
 export function* traverseRoutingPath(
   from: GPSPoint,
   to: GPSPoint,
-  world: GPSList,
+  world: GPSSystem | GPSZone,
   mode: RoutingModes = 0,
 ): Generator<GPSPoint, void> {
   if (from.equals(to)) return
@@ -420,7 +414,7 @@ export function* traverseRoutingPath(
   if (
     fromZone !== toZone &&
     fromZone &&
-    !GPSZone.isHighSpeed(fromZone) &&
+    !fromZone.isHighSpeed() &&
     (mode & RoutingModes.DeterminedStartDirection) !==
       RoutingModes.DeterminedStartDirection
   ) {
@@ -428,10 +422,9 @@ export function* traverseRoutingPath(
       from.x,
       from.y,
       from.z,
-      'poi',
       from.name,
       from.color,
-      fromZone && !GPSZone.isHighSpeed(fromZone) ? 'slowzone' : 'highspeed',
+      fromZone && !fromZone.isHighSpeed() ? 'slowzone' : 'highspeed',
     )
 
     // Vector to TURN_DISTANCE outside of zone
@@ -447,21 +440,20 @@ export function* traverseRoutingPath(
     } else {
       vec = fromZone.vectorToEdge(from, TURN_DISTANCE)
     }
-    const newFromPoint = new GPSPoint(
+    const newFromPoint = new GPSTurn(
       vec.x,
       vec.y,
       vec.z,
-      'poi',
       `Turn (${from.name})`,
       from.color,
-      fromZone && !GPSZone.isHighSpeed(fromZone) ? 'slowzone' : 'highspeed',
+      fromZone && !fromZone.isHighSpeed() ? 'slowzone' : 'highspeed',
     )
 
     console.log('Routing out of zone', fromZone.name)
     yield* traverseRoutingPath(
       start,
       newFromPoint,
-      fromZone.children,
+      fromZone,
       mode | RoutingModes.DeterminedStartDirection,
     )
 
@@ -479,14 +471,14 @@ export function* traverseRoutingPath(
     .sub(new Vector3(from.x, from.y, from.z))
     .normalize()
 
-  const obstacles = [...zones, ...world.pois(false, true)]
+  const obstacles = [...zones, ...world.pois(true)]
   const sortedObstacles = obstacles
     .filter((obstacle) => {
       // filter to relevant obstacles
       if (obstacle.equals(from) || obstacle.equals(to)) {
         return false
       } else if (GPSZone.isZone(obstacle)) {
-        if (GPSZone.isHighSpeed(obstacle)) {
+        if (obstacle.isHighSpeed()) {
           return false
         } else if (
           from.distanceTo(obstacle) >
@@ -511,7 +503,7 @@ export function* traverseRoutingPath(
       (mode & RoutingModes.NavigatingAroundZoneToEntry) !==
         RoutingModes.NavigatingAroundZoneToEntry &&
       GPSZone.isZone(obstacle) &&
-      !GPSZone.isHighSpeed(obstacle) &&
+      !obstacle.isHighSpeed() &&
       obstacle.doesCapture(to) &&
       !obstacle.doesCapture(from)
     ) {
@@ -522,11 +514,10 @@ export function* traverseRoutingPath(
         to,
         allowsLithoturning ? -TURN_DISTANCE : TURN_DISTANCE,
       )
-      const newFromPoint = new GPSPoint(
+      const newFromPoint = new GPSTurn(
         vec.x,
         vec.y,
         vec.z,
-        'poi',
         allowsLithoturning
           ? `Lithoturn (${obstacle.name})`
           : `Turn (${obstacle.name})`,
@@ -545,7 +536,7 @@ export function* traverseRoutingPath(
       yield* traverseRoutingPath(
         newFromPoint,
         to,
-        obstacle.children,
+        obstacle,
         mode | RoutingModes.NavigatingAroundZoneToEntry,
       )
       return
@@ -600,13 +591,12 @@ export function* traverseRoutingPath(
         turnPoint.x,
         turnPoint.y,
         turnPoint.z,
-        'poi',
         `Obstacle (${obstacle.name})`,
         obstacle.color,
         'highspeed',
       )
       const nextZone = zones.find((zone) => zone.doesCapture(nextPoint))
-      if (nextZone && !GPSZone.isHighSpeed(nextZone)) {
+      if (nextZone && !nextZone.isHighSpeed()) {
         nextPoint.category = 'slowzone'
       }
 
@@ -632,27 +622,25 @@ export function* traverseRoutingPath(
     endPosition.x,
     endPosition.y,
     endPosition.z,
-    'poi',
     to.name,
     to.color,
-    toZone && !GPSZone.isHighSpeed(toZone) ? 'slowzone' : 'highspeed',
+    toZone && !toZone.isHighSpeed() ? 'slowzone' : 'highspeed',
   )
 }
 
 export function* traverseRoute(
   waypoints: GPSPoint[],
-  world: GPSList,
+  world: GPSSystem | GPSZone,
   allowLithoturns: boolean = true,
 ): Generator<GPSPoint, void> {
   if (waypoints.length < 2) throw new Error('too few waypoints')
 
   const isStartInSlowZone =
-    waypoints[0].parent && !GPSZone.isHighSpeed(waypoints[0].parent)
+    waypoints[0].parent && !waypoints[0].parent.isHighSpeed()
   yield new GPSPoint(
     waypoints[0].x,
     waypoints[0].y,
     waypoints[0].z,
-    'poi',
     waypoints[0].name,
     waypoints[0].color,
     isStartInSlowZone ? 'slowzone' : 'highspeed',
@@ -669,13 +657,16 @@ export function* traverseRoute(
 
 export const computeShortestRoute = (
   waypoints: GPSPoint[],
-  world: GPSList,
+  world: GPSSystem | GPSZone,
   allowLithoturns: boolean = true,
 ): GPSRoute => {
   return [...traverseRoute(waypoints, world, allowLithoturns)]
 }
 
-export const optimizer = (route: GPSRoute, world: GPSList): GPSRoute => {
+export const optimizer = (
+  route: GPSRoute,
+  world: GPSSystem | GPSZone,
+): GPSRoute => {
   const optimizedRoute = [route[0]]
 
   for (let i = 1; i < route.length - 1; i++) {
@@ -693,7 +684,10 @@ export const optimizer = (route: GPSRoute, world: GPSList): GPSRoute => {
   return optimizedRoute
 }
 
-export const optimizeRoute = (route: GPSRoute, world: GPSList): GPSRoute => {
+export const optimizeRoute = (
+  route: GPSRoute,
+  world: GPSSystem | GPSZone,
+): GPSRoute => {
   // Iterate over the route and find if there are any points that can be removed
   // This is a very naive implementation, but it should work for most cases
   let optimizedRoute = route

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  GPSList,
+  GPSSystem,
   GPSPoint,
   GPSBody,
   GPSZone,
@@ -34,10 +34,8 @@ describe('GPS module', () => {
       color: '#40EC34',
       class: 'zone',
       radius: 10000,
-      children: {
-        list: [],
-        zoneCount: 0,
-      },
+      childZones: [],
+      children: [],
     })
   })
 
@@ -53,10 +51,8 @@ describe('GPS module', () => {
       color: '#FF8C00',
       class: 'zone',
       radius: 10000,
-      children: {
-        list: [],
-        zoneCount: 0,
-      },
+      childZones: [],
+      children: [],
     })
   })
 
@@ -104,9 +100,18 @@ describe('GPS module', () => {
 
   it('should parse GPS list data', () => {
     const gps = `GPS:Hello World:15:-15:0:#40EC34:\nGPS:Goodbye World:-15:15:0:#40EC34:`
-    const result = GPSList.fromString(gps)
-    expect(result).toEqual({
-      list: [
+    const result = GPSSystem.fromString(gps)
+    expect(result).toMatchObject({
+      class: 'system',
+      color: '#FFFFFF',
+      name: 'System - (R:-0.001km)',
+      parent: undefined,
+      radius: -1,
+      x: 0,
+      y: 0,
+      z: 0,
+      childZones: [],
+      children: [
         {
           name: 'Hello World',
           x: 15,
@@ -124,13 +129,12 @@ describe('GPS module', () => {
           class: 'poi',
         },
       ],
-      zoneCount: 0,
     })
   })
 
   it('should export GPS list data to string', () => {
     const gps = `GPS:Hello World:15:-15:0:#FF40EC34:\nGPS:Goodbye World:-15:15:0:#FF40EC34:`
-    const result = GPSList.fromString(gps).toString()
+    const result = GPSSystem.fromString(gps).toString()
     expect(result).toEqual(gps)
   })
 
@@ -157,18 +161,28 @@ describe('GPS module', () => {
       new Vector3(-38.811822350623906, 10008.896475902857, -135.8413782271837),
     )
   })
-})
 
-describe('Route Planner', () => {
-  it('should calculate the optimal route between two points with an obstacle', () => {
-    const world = GPSList.fromString(`
+  it('should calculate turns for a GPS point within a zone', () => {
+    const system = GPSSystem.fromString(`
       GPS:Deimos:900000:-800000:0:#40EC34:
       GPS:Phobos:650000:-650000:-250000:#40EC34:
       GPS:Mars:750000:-750000:-80000:#40EC34:
       GPS:Mars - (R:400km):750000:-750000:-80000:#FFFFFF00:DX3:
     `)
-    const deimos = world.pois(false, true)[0]
-    const phobos = world.pois(false, true)[1]
+    expect(system.turns().length).toEqual(2)
+  })
+})
+
+describe('Route Planner', () => {
+  it('should calculate the optimal route between two points with an obstacle', () => {
+    const world = GPSSystem.fromString(`
+      GPS:Deimos:900000:-800000:0:#40EC34:
+      GPS:Phobos:650000:-650000:-250000:#40EC34:
+      GPS:Mars:750000:-750000:-80000:#40EC34:
+      GPS:Mars - (R:400km):750000:-750000:-80000:#FFFFFF00:DX3:
+    `)
+    const deimos = world.pois(true)[0]
+    const phobos = world.pois(true)[1]
     const result = computeShortestRoute([deimos, phobos], world)
     expect(result).toMatchSnapshot()
   })
@@ -176,10 +190,10 @@ describe('Route Planner', () => {
   it('should calculate a complex route', () => {
     const globalData = DraconisExpanseSystem['Sol']
     const deimos = globalData
-      .pois(false, true)
+      .pois(true)
       .find((body) => body.name === 'Deimos') as GPSPoint
     const ariel = globalData
-      .pois(false, true)
+      .pois(true)
       .find((body) => body.name === 'Ariel') as GPSPoint
 
     const route = computeShortestRoute([deimos, ariel], globalData)

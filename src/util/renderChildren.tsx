@@ -1,23 +1,23 @@
 import { POI } from '../components/PointofInterest'
 import { Zone } from '../components/Zone'
-import { GPSList, GPSPoint, GPSZone } from './gps'
+import { GPSSystem, GPSPoint, GPSZone } from './gps'
 
 export function renderSystemChildren(
-  data: GPSList,
+  data: GPSSystem | GPSZone,
   withTurns: boolean,
   withHighSpeed: boolean,
 ) {
   return (
     <>
-      {data.pois(withTurns).map((each: GPSPoint) => {
+      {[...data.pois(), ...data.turns()].map((each: GPSPoint) => {
         return <POI poi={each} key={each.name} />
       })}
       {data.zones(true).map((each: GPSZone) => (
         <Zone
           zone={each}
           key={each.name}
-          visible={!(GPSZone.isHighSpeed(each) && !withHighSpeed)}
-          renderChildren={(data: GPSList) => {
+          visible={!(each.isHighSpeed() && !withHighSpeed)}
+          renderChildren={(data: GPSZone) => {
             return renderSystemChildren(data, withTurns, withHighSpeed)
           }}
         />

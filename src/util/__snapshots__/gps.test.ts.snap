@@ -124,9 +124,9 @@ exports[`Route Planner > should calculate the optimal route between two points w
     "name": "Phobos",
     "parent": undefined,
     "radius": undefined,
-    "x": 654167.3590882681,
-    "y": -651792.7824866535,
-    "z": -247070.99860276963,
+    "x": 655622.6273413141,
+    "y": -652418.8335137389,
+    "z": -246048.17271802254,
   },
 ]
 `;

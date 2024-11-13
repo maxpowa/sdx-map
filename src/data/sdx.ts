@@ -1,10 +1,10 @@
-import { GPSList } from '../util/gps'
+import { GPSSystem } from '../util/gps'
 
 export const DraconisExpanseSystem = {
   // This GPS list is exported from ingame, using a combination of `!nexus getsectors true` and `!gps` commands.
   // Then run through `parseGPSList` to convert it to a format that can be used here.
   // Some manual tweaks are made as well, marking zone speed limits (by specifying instance names)
-  Sol: GPSList.fromString(`
+  Sol: GPSSystem.fromString(`
     GPS:Ariel:-4110989.31:3110909.45:-359192.17:#FF40EC34:
     GPS:Beratnas Gas Station Jupiter:-119500.8:-2955103.11:351258.18:#FFD6931E:
     GPS:Beratnas Gas Station Saturn:2290226.37:1817047.82:-195774.09:#FFD6931E:
@@ -63,26 +63,26 @@ export const DraconisExpanseSystem = {
     GPS:Vesta Station:-1412860:986040:-49577:#FFD6931E:
     GPS:Vesta:-1400000:1000000:-50000:#FFD6931E:
   `),
-  Kronos: GPSList.fromString(`
+  Kronos: GPSSystem.fromString(`
     GPS:Kronos Gate:-35303:234184:198247:#FFD6931E:
     GPS:Kronos:-75000:86000:18000:#FF40EC34:
     GPS:Kronos 1:-224000:164000:-55000:#FF40EC34:
     GPS:Kronos Research Facility:-48000:29000:32000:#FFD6931E:
   `),
-  Ilus: GPSList.fromString(`
+  Ilus: GPSSystem.fromString(`
     GPS:Ilus:69500:111150:58750:#FFB775F1:
     GPS:Ilus Gate:300146:375140:31503:#FFB775F1:
     GPS:Ilus 1:57500:318500:47900:#FF40EC34:
     GPS:Belter Colony:71459:149570:12666:#FFB775F1:
   `),
-  Jannah: GPSList.fromString(`
+  Jannah: GPSSystem.fromString(`
     GPS:Alpha Berkut Station:600764.75:703346.87:500064.02:#FF40EC34:
     GPS:Port Jannah:422538.91:630064.11:135873.58:#FF40EC34:
     GPS:Jannah Gate:250000:340000:25000:#FFD6931E:
     GPS:JN1 Asteroid Cluster:600000:700000:600000:#FF40EC34:
     GPS:Jannah:600000:700000:100000:#FF40EC34:
   `),
-  'Ring Space': GPSList.fromString(`
+  'Ring Space': GPSSystem.fromString(`
     GPS:Medina Station:15156.6:11584.25:2312.33:#FFF1A875:
     GPS:Sol Gate:-17:411:18:#FFF1A875:
     GPS:Ilus Gate:12349:28361:7116:#FFF1A875:
