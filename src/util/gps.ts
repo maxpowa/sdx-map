@@ -704,10 +704,13 @@ export const optimizer = (
     const current = route[i]
     const next = route[i + 1]
 
+    const isUserWaypoint = waypoints.find((waypoint) =>
+      waypoint.equals(current),
+    )
     if (
       computeShortestRoute([prev, next], world).length > 2 ||
       // If the user requested this waypoint, we must keep it
-      waypoints.find((waypoint) => waypoint.equals(current))
+      isUserWaypoint
     ) {
       optimizedRoute.push(current)
     }
@@ -723,6 +726,9 @@ export const optimizeRoute = (
   waypoints: GPSPoint[],
   world: GPSSystem | GPSZone,
 ): GPSRoute => {
+  // If we are already optimized, return the route
+  if (route.length <= waypoints.length) return route
+
   // Iterate over the route and find if there are any points that can be removed
   // This is a very naive implementation, but it should work for most cases
   let optimizedRoute = route
