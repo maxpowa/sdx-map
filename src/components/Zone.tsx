@@ -91,6 +91,8 @@ export function Zone(props: {
     [controls, isHighSpeed, scale, scaledRadius, set, zone],
   )
 
+  const children = renderChildren(zone)
+
   return (
     <group ref={groupRef} position={position}>
       {visible && (
@@ -141,7 +143,7 @@ export function Zone(props: {
           </instancedMesh>
         </Billboard>
       )}
-      {renderChildren(zone)}
+      {children}
     </group>
   )
 }

@@ -1,21 +1,20 @@
 import { Points, Stars } from '@react-three/drei'
 import { folder, useControls } from 'leva'
-import { ScaleProvider } from '../hooks/scale'
+import { ScaleProvider, useScaledCameraSystem } from '../hooks/scale'
 import { renderSystemChildren } from '../util/renderChildren'
 import { Grid } from './Grid'
 import { Color } from 'three'
-import { DraconisExpanseSystem } from '../data/sdx'
-import { useSystemData } from '../hooks/useSystemData'
 import { AxisLine } from './AxisLine'
+import { GPSSystem } from '../util/gps'
 
 export function StarSystem(props: {
-  system: keyof typeof DraconisExpanseSystem
+  systemData: GPSSystem
   coordScale: number
   textScale: number
 }) {
-  const { system, coordScale, textScale } = props
+  const { systemData, coordScale, textScale } = props
 
-  const systemData = useSystemData(system)
+  useScaledCameraSystem(systemData)
 
   const { showGrid, showHighSpeed, axes, turns, stars } = useControls({
     'View Settings': folder(

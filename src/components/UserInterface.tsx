@@ -4,6 +4,8 @@ import { OrbitControls, Line } from '@react-three/drei'
 import { StarSystem } from './SystemViewer'
 import { Color } from 'three'
 import { useRoutePlanner } from '../hooks/useRoutePlanner'
+import { useSystemData } from '../hooks/useSystemData'
+import { useControls } from 'leva'
 
 const blurbStyle = {
   padding: 'var(--leva-space-xs) var(--leva-space-sm)',
@@ -28,8 +30,17 @@ export function UserInterface(props: {
     }
   }
 
+  // Keep Route Planner on top
+  useControls('Route Planner', () => ({
+    mode: {
+      options: ['Simple', 'Advanced'],
+    },
+  }))
+
+  const systemData = useSystemData(system)
+
   // const [showUserGpsOverlay, setShowUserGpsOverlay] = useState(false)
-  const route = useRoutePlanner(system)
+  const route = useRoutePlanner(systemData)
 
   return (
     <>
@@ -49,7 +60,7 @@ export function UserInterface(props: {
         <ambientLight intensity={Math.PI / 4} />
         {system && (
           <StarSystem
-            system={system}
+            systemData={systemData}
             coordScale={coordScale}
             textScale={textScale}
           />

@@ -1,11 +1,8 @@
-import { useThree } from '@react-three/fiber'
-import { useControls, button } from 'leva'
-import { useMemo, useCallback, useEffect } from 'react'
+import { useControls, button, buttonGroup, folder } from 'leva'
+import { useMemo, useEffect, useState } from 'react'
 import { DraconisExpanseSystem } from '../data/sdx'
-import { type OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { getParams } from './useSynchronizedSetting'
-import { GPSPoint, GPSSystem, GPSBody } from '../util/gps'
-import { useScale } from './scale'
+import { GPSPoint, GPSSystem } from '../util/gps'
 
 export function getGPSValue(key: string) {
   const params = getParams()
@@ -14,6 +11,128 @@ export function getGPSValue(key: string) {
     value = GPSPoint.fromString(params.get(key) as string)
   }
   return value
+}
+
+export function useSystemWithUserPoints(
+  system: keyof typeof DraconisExpanseSystem,
+) {
+  const [userPoints, setUserPoints] = useState<GPSPoint[]>([])
+
+  useEffect(() => {
+    const storedData = localStorage.getItem(`${system}-userData`)
+    if (storedData) {
+      const points = storedData.split('\n').map(GPSPoint.fromString)
+      setUserPoints(points)
+    }
+  }, [system])
+
+  const [{ Points }, set] = useControls(
+    'GPS Manager',
+    () => ({
+      'Create new GPS': folder(
+        {
+          mode: {
+            label: 'Mode',
+            options: ['Simple', 'Advanced'],
+          },
+          Name: {
+            value: '',
+            render: (get) =>
+              get('GPS Manager.Create new GPS.mode') === 'Simple',
+          },
+          Position: {
+            value: { x: 0, y: 0, z: 0 },
+            render: (get) =>
+              get('GPS Manager.Create new GPS.mode') === 'Simple',
+          },
+          Color: {
+            value: '#FFFFFF',
+            render: (get) =>
+              get('GPS Manager.Create new GPS.mode') === 'Simple',
+          },
+          Data: {
+            value: '',
+            rows: true,
+            render: (get) =>
+              get('GPS Manager.Create new GPS.mode') === 'Advanced',
+          },
+          Add: button((get) => {
+            const name = get('GPS Manager.Create new GPS.Name')
+            if (name) {
+              const coords = get('GPS Manager.Create new GPS.Position')
+              const color = get('GPS Manager.Create new GPS.Color')
+              const point = new GPSPoint(
+                coords.x,
+                coords.y,
+                coords.z,
+                name,
+                color,
+              )
+              setUserPoints([
+                ...userPoints.filter((each) => each.name !== point.name),
+                point,
+              ])
+              localStorage.setItem(
+                `${system}-userData`,
+                Object.values(userPoints).join('\n'),
+              )
+            }
+          }),
+        },
+        { collapsed: true },
+      ),
+      Points: {
+        options: userPoints.reduce(
+          (acc, point) => {
+            acc[point.name] = point.name
+            return acc
+          },
+          {} as Record<string, string>,
+        ),
+      },
+      ' ': buttonGroup({
+        'Delete All': () => {
+          userPoints.forEach((point) => point.remove())
+          setUserPoints([])
+          localStorage.removeItem(`${system}-userData`)
+        },
+        'Copy All': () => {
+          navigator.clipboard.writeText(userPoints.join('\n'))
+        },
+        Copy: (get) => {
+          navigator.clipboard.writeText(
+            get('GPS Manager.Points').value.toString(),
+          )
+        },
+        Delete: (get) => {
+          const newPoints = userPoints.filter(
+            (point) => point.name !== get('GPS Manager.Points'),
+          )
+          setUserPoints(newPoints)
+          localStorage.setItem(`${system}-userData`, newPoints.join('\n'))
+        },
+      }),
+    }),
+    { collapsed: true },
+    [system, userPoints.join('\n'), setUserPoints],
+  )
+
+  useEffect(() => {
+    if (!Points && userPoints[0]) {
+      set({
+        Points: userPoints[0].name,
+      })
+    }
+  }, [userPoints, set, Points])
+
+  const systemData = useMemo(() => {
+    const data = DraconisExpanseSystem[system].clone()
+    data.name = system
+    data.push(...userPoints)
+    return data
+  }, [system, userPoints])
+
+  return systemData
 }
 
 export function getGPSList(key: string) {
@@ -26,80 +145,7 @@ export function getGPSList(key: string) {
 }
 
 export function useSystemData(system: keyof typeof DraconisExpanseSystem) {
-  const controls = useThree((state) => state.controls) as OrbitControlsImpl
-
-  const systemData = useMemo(() => {
-    const data = DraconisExpanseSystem[system].clone()
-    return data
-  }, [system])
-
-  const [, set] = useControls('Focused Point of Interest', () => ({
-    Information: {
-      value: '',
-      editable: false,
-    },
-    GPS: {
-      value: '',
-      editable: false,
-    },
-  }))
-
-  const scale = useScale()
-
-  const resetCamera = useCallback(() => {
-    if (!controls) return
-    if (system === 'Sol') {
-      controls.object.position.set(0, 0, 5000)
-      controls.target.set(0, 0, 0)
-    } else if (system === 'Ring Space') {
-      controls.object.position.set(0, 0, 50)
-      controls.target.set(15, 10, 0)
-    } else if (system === 'Kronos') {
-      controls.object.position.set(-5500, 2300, 1233)
-      controls.target.set(-900, 1030, 216)
-    } else if (system === 'Ilus') {
-      controls.object.position.set(3275, 6164, 3333)
-      controls.target.set(1903, 2661, 35)
-    } else if (system === 'Jannah') {
-      controls.object.position.set(2000, 0, 3500)
-      controls.target.set(7000, 8000, 1000)
-    }
-    set({ Information: 'N/A', GPS: '' })
-
-    const focus = getGPSValue('focus')
-    if (focus) {
-      const position = focus.clone().multiplyScalar(scale)
-      controls.target = position
-      const cameraPosition = position
-        .clone()
-        .add(
-          controls.object.position
-            .normalize()
-            .multiplyScalar(
-              (GPSBody.isBody(focus) ? focus.radius : 50000) * scale * 5,
-            ),
-        )
-      controls.object.position.set(
-        cameraPosition.x,
-        cameraPosition.y,
-        cameraPosition.z,
-      )
-      set({
-        Information: `${focus.name} (${focus.category})`,
-        GPS: focus.toString(),
-      })
-    }
-    controls.update()
-  }, [controls, set, system, scale])
-
-  useEffect(resetCamera, [system, resetCamera, controls])
-
-  useControls(
-    {
-      'Reset View': button(resetCamera),
-    },
-    [controls, system],
-  )
+  const systemData = useSystemWithUserPoints(system)
 
   return systemData
 }

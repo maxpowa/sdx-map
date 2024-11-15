@@ -52,6 +52,7 @@ export class GPSPoint extends Vector3 {
   category?: string
   radius?: number
   parent?: GPSZone
+  sibling?: GPSPoint
 
   constructor(
     x: number,
@@ -85,6 +86,16 @@ export class GPSPoint extends Vector3 {
     let result = `GPS:${this.name}:${this.x}:${this.y}:${this.z}:#FF${this.color.substring(1)}:`
     if (this.category) result += `${this.category}:`
     return result
+  }
+
+  remove(withSibling: boolean = false) {
+    this.parent?.removeChild(this)
+
+    // remove reference to self from sibling
+    if (this.sibling) this.sibling.sibling = undefined
+
+    // remove sibling
+    if (withSibling) this.sibling?.remove(false)
   }
 
   // This regex is kind of hellish, but it works. I assume the game has a similar internal regex, since the allowed format is very loose.
@@ -165,8 +176,8 @@ export class GPSBody extends GPSPoint {
 export class GPSZone extends GPSBody {
   class = 'zone'
 
-  children = [] as GPSPointOfInterest[]
-  childZones = [] as GPSZone[]
+  protected children = [] as GPSPointOfInterest[]
+  protected childZones = [] as GPSZone[]
 
   constructor(
     x: number,
@@ -183,7 +194,7 @@ export class GPSZone extends GPSBody {
       name += ` - (R:${radius / 1000}km)`
     }
     super(x, y, z, name, color, radius, category, parent)
-    this.push(...children)
+    if (children.length > 0) this.push(...children)
   }
 
   doesCapture(point: GPSPointOfInterest): boolean {
@@ -194,7 +205,56 @@ export class GPSZone extends GPSBody {
     )
   }
 
-  push(...args: GPSPointOfInterest[]): GPSPointOfInterest[] {
+  // I HATE THIS FUNCTION
+  private nestZonesAndPois<T extends GPSPointOfInterest>(
+    pois: T[],
+    zones: GPSZone[],
+  ) {
+    const output = [] as T[]
+    const parentEntries = [] as T[]
+    const groupedZones = {} as Record<number, T[]>
+
+    for (const poi of pois) {
+      const parentZoneIndex = zones.findIndex(
+        (potentialParent) =>
+          poi !== potentialParent && potentialParent.doesCapture(poi),
+      )
+      if (parentZoneIndex >= 0) {
+        groupedZones[parentZoneIndex] = groupedZones[parentZoneIndex] ?? []
+        groupedZones[parentZoneIndex].push(poi)
+      } else if (this.doesCapture(poi)) {
+        poi.parent = this
+        output.push(poi)
+
+        if (poi.class !== 'turn' && !this.isHighSpeed()) {
+          const turnVec = this.vectorToEdge(poi, TURN_DISTANCE)
+          if (turnVec && !turnVec.equals(poi)) {
+            const turn = new GPSTurn(
+              turnVec.x,
+              turnVec.y,
+              turnVec.z,
+              `${poi.name} (Turn)`,
+              '#00FFFF',
+              poi.category,
+            )
+            poi.sibling = turn
+            turn.sibling = poi
+            // will use surrounding logic to determine the best zone to place the turn
+            parentEntries.push(turn as T)
+          }
+        }
+      } else if (this.parent) {
+        parentEntries.push(poi)
+      } else {
+        throw new Error('Unable to place POI')
+      }
+    }
+    return { self: output, parent: parentEntries, zones: groupedZones }
+  }
+
+  push(...args: GPSPointOfInterest[]) {
+    if (args.length === 0) return []
+
     const { zones, pois } = args.reduce(
       (acc, poi) => {
         if (GPSZone.isZone(poi)) {
@@ -211,63 +271,32 @@ export class GPSZone extends GPSBody {
       (a, b) => a.radius - b.radius,
     )
 
-    // Nest zones within zones, again within their smallest possible parents
-    let i = tempChildZones.length
-    while (i--) {
-      const zone = tempChildZones[i]
-      const parentZone = tempChildZones.find(
-        (potentialParent) =>
-          zone !== potentialParent && potentialParent.doesCapture(zone),
-      )
-      if (parentZone) {
-        zone.parent = parentZone
-        parentZone.push(zone)
-        tempChildZones.splice(i, 1)
-      } else if (this.doesCapture(zone)) {
-        zone.parent = this
-      } else if (this.parent) {
-        zone.parent = this.parent
-        this.parent.push(zone)
-        tempChildZones.splice(i, 1)
-      }
+    const nestedZones = this.nestZonesAndPois(tempChildZones, tempChildZones)
+    this.childZones = nestedZones.self
+    for (const idx in nestedZones.zones) {
+      const zone = tempChildZones[idx]
+      zone.push(...nestedZones.zones[idx])
     }
 
     // Nest POIs within the smallest parent zone
-    pois.forEach((poi) => {
-      const parentZone = tempChildZones.find((zone) => zone.doesCapture(poi))
-      if (parentZone) {
-        poi.parent = parentZone
-        parentZone.push(poi)
-      } else if (this.doesCapture(poi)) {
-        poi.parent = this
-        this.children.push(poi)
+    const tempChildPois = [...this.children, ...pois]
+    const nestedPois = this.nestZonesAndPois(tempChildPois, this.childZones)
+    this.children = nestedPois.self
+    for (const idx in nestedPois.zones) {
+      const zone = this.childZones[idx]
+      zone.push(...nestedPois.zones[idx])
+    }
+    this.parent?.push(...nestedZones.parent, ...nestedPois.parent)
 
-        if (poi.class !== 'turn' && !this.isHighSpeed()) {
-          // Handle adding turns
-          const turnVec = this.vectorToEdge(poi, TURN_DISTANCE)
-          if (turnVec && !turnVec.equals(poi)) {
-            const turn = new GPSTurn(
-              turnVec.x,
-              turnVec.y,
-              turnVec.z,
-              `${poi.name} (Turn)`,
-              '#00FFFF',
-              poi.category,
-            )
-            // will use surrounding logic to determine the best zone to place the turn
-            this.parent?.push(turn)
-          }
-        }
-      } else if (this.parent) {
-        poi.parent = this.parent
-        this.parent?.push(poi)
-      }
-    })
+    return
+  }
 
-    // commit zone changes
-    this.childZones = tempChildZones.reverse()
-
-    return args
+  removeChild(poi: GPSPointOfInterest) {
+    if (GPSZone.isZone(poi)) {
+      this.childZones = this.childZones.filter((zone) => zone !== poi)
+    } else {
+      this.children = this.children.filter((child) => child !== poi)
+    }
   }
 
   turns(recursive: boolean = false): GPSTurn[] {
@@ -326,8 +355,8 @@ export class GPSZone extends GPSBody {
     if (includeChildren && (this.children || this.childZones)) {
       return [
         super.toString(),
-        ...this.children,
-        ...this.childZones.map((each) => each.toString(includeChildren)),
+        ...this.pois(),
+        ...this.zones(true).map((each) => each.toString(includeChildren)),
       ].join('\n')
     }
     return super.toString()
@@ -355,8 +384,8 @@ export class GPSSystem extends GPSZone {
 
   toString(): string {
     return [
-      ...this.children,
-      ...this.childZones.map((each) => each.toString(true)),
+      ...this.pois(),
+      ...this.zones(true).map((each) => each.toString(true)),
     ].join('\n')
   }
 
@@ -665,6 +694,7 @@ export const computeShortestRoute = (
 
 export const optimizer = (
   route: GPSRoute,
+  waypoints: GPSPoint[],
   world: GPSSystem | GPSZone,
 ): GPSRoute => {
   const optimizedRoute = [route[0]]
@@ -674,7 +704,11 @@ export const optimizer = (
     const current = route[i]
     const next = route[i + 1]
 
-    if (computeShortestRoute([prev, next], world).length > 2) {
+    if (
+      computeShortestRoute([prev, next], world).length > 2 ||
+      // If the user requested this waypoint, we must keep it
+      waypoints.find((waypoint) => waypoint.equals(current))
+    ) {
       optimizedRoute.push(current)
     }
   }
@@ -686,6 +720,7 @@ export const optimizer = (
 
 export const optimizeRoute = (
   route: GPSRoute,
+  waypoints: GPSPoint[],
   world: GPSSystem | GPSZone,
 ): GPSRoute => {
   // Iterate over the route and find if there are any points that can be removed
@@ -693,8 +728,8 @@ export const optimizeRoute = (
   let optimizedRoute = route
   let prevLength
   do {
-    prevLength = optimizeRoute.length
-    optimizedRoute = optimizer(optimizedRoute, world)
+    prevLength = optimizedRoute.length
+    optimizedRoute = optimizer(optimizedRoute, waypoints, world)
   } while (optimizedRoute.length < prevLength)
 
   return optimizedRoute

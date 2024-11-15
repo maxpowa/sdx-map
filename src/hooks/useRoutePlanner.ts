@@ -1,12 +1,12 @@
 import { useControls, folder, button, buttonGroup } from 'leva'
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { DraconisExpanseSystem } from '../data/sdx'
 import {
   GPSRoute,
   GPSPoint,
   computeShortestRoute,
   GPSPointOfInterest,
   optimizeRoute,
+  GPSSystem,
 } from '../util/gps'
 import { getParams } from './useSynchronizedSetting'
 
@@ -26,20 +26,18 @@ export function buildJourney(route: GPSRoute, smallGridSpeeds: boolean) {
   return ''
 }
 
-export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
+export function useRoutePlanner(world: GPSSystem) {
   const [route, setRoute] = useState<GPSRoute>([])
 
   const [waypoints, setWaypoints] = useState<GPSPointOfInterest[]>()
-  const [world, pois] = useMemo(() => {
-    const world = DraconisExpanseSystem[system].clone()
-    if (waypoints) {
-      world.push(...waypoints)
-    }
-
-    const tempPois = [...world.pois(true), ...world.turns(true)]
+  const [pois] = useMemo(() => {
+    const tempPois = [
+      ...world.pois(true),
+      ...world.turns(true),
+      ...(waypoints ?? []),
+    ]
 
     return [
-      world,
       tempPois
         .sort((a, b) => a.name.localeCompare(b.name))
         .reduce(
@@ -50,7 +48,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
           {} as Record<string, GPSPoint>,
         ),
     ]
-  }, [system, waypoints])
+  }, [world, waypoints])
 
   const { mode } = useControls({
     'Route Planner': folder({
@@ -129,20 +127,18 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
         Object.keys(pois)[1],
     })
     setRoute([])
-  }, [pois, set, system, waypoints])
+  }, [pois, set, world, waypoints])
 
   const computeRoute = useCallback(() => {
     let route
     try {
       const beforeRoute = performance.now()
-      route = computeShortestRoute(
-        mode === 'Simple' ? [pois[from], pois[to]] : waypoints!,
-        world,
-        allowLithoturns,
-      )
+      const routeWaypoints =
+        mode === 'Simple' ? [pois[from], pois[to]] : waypoints!
+      route = computeShortestRoute(routeWaypoints, world, allowLithoturns)
       const afterRoute = performance.now()
       try {
-        route = optimizeRoute(route, world)
+        route = optimizeRoute(route, routeWaypoints, world)
       } catch (e) {
         console.error('Failed to optimize route:', e)
       }
@@ -174,7 +170,7 @@ export function useRoutePlanner(system: keyof typeof DraconisExpanseSystem) {
       }),
     },
     [
-      system,
+      world.name,
       from,
       to,
       allowLithoturns,
