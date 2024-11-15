@@ -8,9 +8,7 @@ import {
   optimizeRoute,
   GPSSystem,
 } from '../util/gps'
-import { getParams } from './useSynchronizedSetting'
-
-const gpsParams = getParams().getAll('gps').join('\n')
+import { useHashParams } from './useHashData'
 
 export function buildJourney(route: GPSRoute, smallGridSpeeds: boolean) {
   if (route) {
@@ -27,6 +25,9 @@ export function buildJourney(route: GPSRoute, smallGridSpeeds: boolean) {
 }
 
 export function useRoutePlanner(world: GPSSystem) {
+  const hashParams = useHashParams()
+  const gpsParams = hashParams?.getAll('gps').join('\n')
+
   const [route, setRoute] = useState<GPSRoute>([])
 
   const [waypoints, setWaypoints] = useState<GPSPointOfInterest[]>()
@@ -50,15 +51,18 @@ export function useRoutePlanner(world: GPSSystem) {
     ]
   }, [world, waypoints])
 
-  const { mode } = useControls({
+  const [{ mode }, setMode] = useControls(() => ({
     'Route Planner': folder({
       mode: {
-        value: gpsParams ? 'Advanced' : 'Simple',
         options: ['Simple', 'Advanced'],
         label: 'Mode',
       },
     }),
-  })
+  }))
+
+  useEffect(() => {
+    setMode({ mode: gpsParams ? 'Advanced' : 'Simple' })
+  }, [gpsParams, setMode])
 
   const keys = Object.keys(pois)
 
@@ -76,8 +80,7 @@ export function useRoutePlanner(world: GPSSystem) {
           },
           GPS: {
             render: () => mode === 'Advanced',
-            value: waypoints ? waypoints.join('\n') : gpsParams,
-            editable: true,
+            value: '',
             rows: true,
             label: 'GPS List (one per line, SHIFT-ENTER to create a new line)',
             onChange: (value: string, _, ctx) => {
@@ -99,6 +102,8 @@ export function useRoutePlanner(world: GPSSystem) {
               ) {
                 ctx.value =
                   newPoints.map((each) => each.toString()).join('\n') + '\n'
+                waypoints?.forEach((each) => each.remove())
+                world.push(...newPoints)
                 setWaypoints(newPoints)
               }
             },
@@ -127,7 +132,23 @@ export function useRoutePlanner(world: GPSSystem) {
         Object.keys(pois)[1],
     })
     setRoute([])
-  }, [pois, set, world, waypoints])
+  }, [pois, set, world])
+
+  useEffect(() => {
+    set({
+      // @ts-expect-error Leva types are jank as fuck here
+      GPS: gpsParams ?? '',
+    })
+  }, [gpsParams, set])
+
+  useEffect(() => {
+    if (waypoints) {
+      set({
+        // @ts-expect-error Leva types are jank as fuck here
+        GPS: waypoints?.join('\n'),
+      })
+    }
+  }, [waypoints, set])
 
   const computeRoute = useCallback(() => {
     let route
@@ -154,6 +175,12 @@ export function useRoutePlanner(world: GPSSystem) {
     return route
   }, [mode, pois, from, to, waypoints, world, allowLithoturns])
 
+  useEffect(() => {
+    if (waypoints && waypoints.length > 0) {
+      computeRoute()
+    }
+  }, [computeRoute, waypoints])
+
   useControls(
     'Route Planner',
     {
@@ -173,7 +200,7 @@ export function useRoutePlanner(world: GPSSystem) {
       allowLithoturns,
       route,
       mode,
-      waypoints,
+      waypoints?.join('\n'),
       smallGridSpeeds,
     ],
   )
@@ -198,12 +225,23 @@ export function useRoutePlanner(world: GPSSystem) {
     'Route Planner',
     {
       Copy: buttonGroup({
-        label: '',
+        label: 'Copy',
         render: () => route.length > 0,
         opts: {
-          'Copy NavOS Journey': () =>
+          'NavOS Journey': () =>
             getRouteAndCopy((r) => buildJourney(r, smallGridSpeeds)),
-          'Copy GPS List': () => getRouteAndCopy((r) => r.join('\n')),
+          'GPS List': () => getRouteAndCopy((r) => r.join('\n')),
+          URL: () => {
+            const params = new URLSearchParams()
+            const points =
+              mode === 'Simple' ? [pois[from], pois[to]] : waypoints!
+            points.forEach((point) => {
+              params.append('gps', point.toString())
+            })
+            const tempUrl = new URL(window.location.toString())
+            tempUrl.hash = params.toString()
+            navigator.clipboard.writeText(tempUrl.toString())
+          },
         },
       }),
     },
