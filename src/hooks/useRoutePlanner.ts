@@ -163,10 +163,7 @@ export function useRoutePlanner(world: GPSSystem) {
           return
         }
 
-        const route = computeRoute()
-        if (route) {
-          navigator.clipboard.writeText(buildJourney(route, smallGridSpeeds))
-        }
+        computeRoute()
       }),
     },
     [
