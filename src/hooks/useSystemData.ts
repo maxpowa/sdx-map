@@ -2,7 +2,7 @@ import { useControls, button, buttonGroup, folder } from 'leva'
 import { useMemo, useEffect, useState } from 'react'
 import { DraconisExpanseSystem } from '../data/sdx'
 import { getParams } from './useSynchronizedSetting'
-import { GPSPoint, GPSSystem } from '../util/gps'
+import { GPSPoint, GPSPointOfInterest, GPSSystem } from '../util/gps'
 
 export function getGPSValue(key: string) {
   const params = getParams()
@@ -57,20 +57,43 @@ export function useSystemWithUserPoints(
               get('GPS Manager.Create new GPS.mode') === 'Advanced',
           },
           Add: button((get) => {
-            const name = get('GPS Manager.Create new GPS.Name')
-            if (name) {
-              const coords = get('GPS Manager.Create new GPS.Position')
-              const color = get('GPS Manager.Create new GPS.Color')
-              const point = new GPSPoint(
-                coords.x,
-                coords.y,
-                coords.z,
-                name,
-                color,
-              )
+            const mode = get('GPS Manager.Create new GPS.mode')
+            if (mode === 'Simple') {
+              const name = get('GPS Manager.Create new GPS.Name')
+              if (name) {
+                const coords = get('GPS Manager.Create new GPS.Position')
+                const color = get('GPS Manager.Create new GPS.Color')
+                const point = new GPSPoint(
+                  coords.x,
+                  coords.y,
+                  coords.z,
+                  name,
+                  color,
+                )
+                setUserPoints([
+                  ...userPoints.filter((each) => each.name !== point.name),
+                  point,
+                ])
+                localStorage.setItem(
+                  `${system}-userData`,
+                  Object.values(userPoints).join('\n'),
+                )
+              } else {
+                alert('Name is required')
+              }
+            } else {
+              const data = get('GPS Manager.Create new GPS.Data')
+              const newPoints = data
+                .split('\n')
+                .map((gps: string) => GPSPoint.fromString(gps))
               setUserPoints([
-                ...userPoints.filter((each) => each.name !== point.name),
-                point,
+                ...userPoints.filter(
+                  (each) =>
+                    !!newPoints.find(
+                      (point: GPSPointOfInterest) => each.name !== point.name,
+                    ),
+                ),
+                ...newPoints,
               ])
               localStorage.setItem(
                 `${system}-userData`,
@@ -82,13 +105,7 @@ export function useSystemWithUserPoints(
         { collapsed: true },
       ),
       Points: {
-        options: userPoints.reduce(
-          (acc, point) => {
-            acc[point.name] = point.name
-            return acc
-          },
-          {} as Record<string, string>,
-        ),
+        options: ['--', ...userPoints.map((point) => point.name)],
       },
       ' ': buttonGroup({
         'Delete All': () => {
@@ -109,6 +126,9 @@ export function useSystemWithUserPoints(
             (point) => point.name !== get('GPS Manager.Points'),
           )
           setUserPoints(newPoints)
+          set({
+            Points: newPoints[0]?.name ?? '',
+          })
           localStorage.setItem(`${system}-userData`, newPoints.join('\n'))
         },
       }),
