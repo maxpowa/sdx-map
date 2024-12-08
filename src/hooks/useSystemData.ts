@@ -21,7 +21,17 @@ export function useSystemWithUserPoints(
   useEffect(() => {
     const storedData = localStorage.getItem(`${system}-userData`)
     if (storedData) {
-      const points = storedData.split('\n').map(GPSPoint.fromString)
+      const points = storedData
+        .split('\n')
+        .map((each) => {
+          try {
+            return GPSPoint.fromString(each)
+          } catch (e) {
+            console.error(e)
+            return null
+          }
+        })
+        .filter((each) => !!each)
       setUserPoints(points)
     }
   }, [system])
@@ -85,7 +95,15 @@ export function useSystemWithUserPoints(
               const data = get('GPS Manager.Create new GPS.Data')
               const newPoints = data
                 .split('\n')
-                .map((gps: string) => GPSPoint.fromString(gps))
+                .map((each: string): GPSPoint | null => {
+                  try {
+                    return GPSPoint.fromString(each)
+                  } catch (e) {
+                    console.error(e)
+                    return null
+                  }
+                })
+                .filter((each: GPSPoint | null): boolean => !!each)
               setUserPoints([
                 ...userPoints.filter(
                   (each) =>
