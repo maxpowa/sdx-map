@@ -43,7 +43,7 @@ export function useSystemWithUserPoints(
         {
           mode: {
             label: 'Mode',
-            options: ['Simple', 'Advanced'],
+            options: ['Advanced', 'Simple'],
           },
           Name: {
             value: '',
