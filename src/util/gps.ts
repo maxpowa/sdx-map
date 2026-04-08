@@ -10,6 +10,7 @@ export const ZoneColors = {
   DX6: '#008000',
   DX7: '#800080',
   DX8: '#FFFFFF',
+  DXMausoleum: '#00E1FF',
 } as Record<string, string>
 
 // Sources:
@@ -109,7 +110,7 @@ export class GPSPoint extends Vector3 {
     }
 
     const name = result[1]
-    const radixResult = /(?<name>.+?)(?: - \(R:(?<radix>\d+?)km\))?$/.exec(
+    const radixResult = /(?<name>.+?)(?: - \(R[:-](?<radix>\d+?)km\))?$/.exec(
       name,
     )!
 
@@ -190,8 +191,8 @@ export class GPSZone extends GPSBody {
     category?: string,
     parent?: GPSZone,
   ) {
-    if (!name.includes(' - (R:')) {
-      name += ` - (R:${radius / 1000}km)`
+    if (!/ - \(R[:-]\d+km\)/.test(name)) {
+      name += ` - (R-${radius / 1000}km)`
     }
     super(x, y, z, name, color, radius, category, parent)
     if (children.length > 0) this.push(...children)
